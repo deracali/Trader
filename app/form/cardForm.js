@@ -1,20 +1,22 @@
 
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    Alert,
-    Dimensions,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Dimensions,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
@@ -258,50 +260,81 @@ const GiftCardPurchaseForm = () => {
     return Object.keys(errs).length === 0;
   };
 
-  const handlePurchase = async () => {
-    if (!validateForm()) return;
-    
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      
-      Alert.alert(
-        'Purchase Successful!',
-        `You will receive ₦${ngnAmount} for your ${getCurrentCurrency()} ${cardAmount} ${selectedCard} card.`,
-        [{ 
-          text: 'OK',
-          onPress: () => {
-            // Reset form
-            setCardAmount('');
-            setCardNumber('');
-            setCardImage(null);
-            setNgnAmount('0');
-            setErrors({});
-            if (availableCardTypes.length > 0) {
-              const firstCard = availableCardTypes[0];
-              setSelectedCard(firstCard);
-              setCurrentCurrency(cardCurrencies[firstCard] || 'USD');
-            }
-          }
-        }]
-      );
-    } catch (error) {
-      Alert.alert('Error', 'Failed to process purchase. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+const handlePurchase = async () => {
+  if (!validateForm()) return;
 
-  // Debug logging (remove in production)
-  useEffect(() => {
-    console.log('Card data:', parsedCard);
-    console.log('Available types:', availableCardTypes);
-    console.log('Selected card:', selectedCard);
-    console.log('Exchange rates:', cardExchangeRates);
-    console.log('Card currencies:', cardCurrencies);
-    console.log('Current currency:', getCurrentCurrency());
-  }, [parsedCard, availableCardTypes, selectedCard, cardExchangeRates, cardCurrencies, currentCurrency]);
+  setIsLoading(true);
+
+  try {
+    const storedUserId = await AsyncStorage.getItem('userId');
+    if (!storedUserId) {
+      throw new Error('User ID not found. Please log in again.');
+    }
+
+    const formData = new FormData();
+
+    // Append text fields
+    formData.append('type', selectedCard);
+    formData.append('amount', cardAmount);
+    formData.append('currency', getCurrentCurrency());
+    formData.append('cardNumber', cardNumber);
+    formData.append('ngnAmount', ngnAmount);
+    formData.append('exchangeRate', cardExchangeRates[selectedCard]);
+    formData.append('user', storedUserId);
+    formData.append('userDescription', ''); // Optional
+
+    // Append image file
+    if (cardImage && cardImage.uri) {
+      const fileUri = cardImage.uri;
+      const fileName = fileUri.split('/').pop();
+      const fileType = cardImage.type || 'image/jpeg';
+
+      formData.append('image', {
+        uri: fileUri,
+        name: fileName,
+        type: fileType,
+      });
+    } else {
+      throw new Error('Image is required.');
+    }
+
+    const response = await axios.post(
+      'https://trader-pmqb.onrender.com/api/gift-cards/create',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+
+    Alert.alert(
+      'Purchase Successful!',
+      `You will receive ₦${ngnAmount} for your ${getCurrentCurrency()} ${cardAmount} ${selectedCard} card.`,
+      [{
+        text: 'OK',
+        onPress: () => {
+          // Reset form
+          setCardAmount('');
+          setCardNumber('');
+          setCardImage(null);
+          setNgnAmount('0');
+          setErrors({});
+          if (availableCardTypes.length > 0) {
+            const firstCard = availableCardTypes[0];
+            setSelectedCard(firstCard);
+            setCurrentCurrency(cardCurrencies[firstCard] || 'USD');
+          }
+        },
+      }]
+    );
+  } catch (error) {
+    console.error('Gift card purchase error:', error.response?.data || error.message);
+    Alert.alert('Error', error.message || 'Failed to process purchase. Please try again.');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <KeyboardAvoidingView
@@ -482,7 +515,7 @@ const GiftCardPurchaseForm = () => {
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
+        flex: 1, 
         backgroundColor: 'white',
     },
     keyboardView: {

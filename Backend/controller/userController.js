@@ -16,7 +16,6 @@ export const getUsers = async (req, res) => {
 
 const JWT_SECRET = process.env.JWT_SECRET || 'yoursecretkey';
 
-// Register a new user
 export const createUser = async (req, res) => {
   const { name, email, password, accountNumber, accountName, bankName } = req.body;
 
@@ -52,6 +51,7 @@ export const createUser = async (req, res) => {
       token
     });
   } catch (err) {
+    console.error('Error in createUser:', err); // <--- Console logging the error
     res.status(400).json({ message: err.message });
   }
 };

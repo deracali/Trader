@@ -1,7 +1,9 @@
 import { v2 as cloudinary } from "cloudinary";
+import dotenv from 'dotenv';
 import GiftCard from "../model/cardRequestModel.js";
-
 // Cloudinary Configuration
+dotenv.config();
+
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -10,35 +12,76 @@ cloudinary.config({
 
 // Helper to upload image
 const uploadImage = async (filePath) => {
-  const result = await cloudinary.uploader.upload(filePath, {
-    folder: "gift_cards",
-  });
-  return result.secure_url; // Return the image URL
+  try {
+    console.log("📤 Uploading image to Cloudinary...");
+    console.log("📝 File path:", filePath);
+
+    const result = await cloudinary.uploader.upload(filePath, {
+      folder: "teacher_profiles",
+    });
+
+    console.log("✅ Image uploaded successfully. URL:", result.secure_url);
+    return result.secure_url;
+  } catch (uploadErr) {
+    console.error("❌ Cloudinary upload error:");
+    console.error("Message:", uploadErr.message);
+    if (uploadErr.response && uploadErr.response.body) {
+      console.error("Cloudinary response body:", uploadErr.response.body);
+    } else {
+      console.error(uploadErr);
+    }
+    throw uploadErr;
+  }
 };
 
 // @desc    Create a new gift card sale
 // @route   POST /api/giftcards
-// @access  Public (or protected, as you wish!)
+// @access  Public
 export const createGiftCard = async (req, res) => {
   try {
-    const { type, amount, currency, cardNumber, ngnAmount, exchangeRate, userDescription, user } =
-      req.body;
+    console.log("🔐 Received gift card data:", req.body);
+    console.log("📦 Uploaded files:", req.files);
 
+    const {
+      type,
+      amount,
+      currency,
+      cardNumber,
+      ngnAmount,
+      exchangeRate,
+      userDescription,
+      user,
+    } = req.body;
+
+    // Validate required fields
     if (!type || !amount || !currency || !cardNumber || !ngnAmount || !exchangeRate || !user) {
+      console.warn("⚠️ Missing required fields.");
       return res.status(400).json({ message: "Please provide all required fields." });
     }
 
-    // Check if file was uploaded
+    // Validate image upload
     if (!req.files || !req.files.image) {
+      console.warn("⚠️ No image uploaded in request.");
       return res.status(400).json({ message: "Please upload an image of the card." });
     }
 
     const imageFile = req.files.image;
+    console.log("🖼️ Image file metadata:", {
+      name: imageFile.name,
+      mimetype: imageFile.mimetype,
+      size: imageFile.size,
+      tempFilePath: imageFile.tempFilePath,
+    });
 
-    // Upload to Cloudinary
+    // Validate image type
+    if (!imageFile.mimetype.startsWith("image/")) {
+      return res.status(400).json({ message: "Invalid file type. Please upload an image." });
+    }
+
+    // Upload image to Cloudinary
     const imageUrl = await uploadImage(imageFile.tempFilePath);
 
-    // Create new GiftCard document
+    // Save gift card data to DB
     const newGiftCard = await GiftCard.create({
       type,
       amount,
@@ -50,17 +93,23 @@ export const createGiftCard = async (req, res) => {
       user,
       userDescription,
       status: "pending",
-      read: false,      // explicitly set read to false
-      readCount: 0,     // explicitly set readCount to 0
+      read: false,
+      readCount: 0,
     });
 
-    res.status(201).json({ message: "Gift card sale created successfully.", giftCard: newGiftCard });
+    console.log("💾 Gift card saved to DB:", newGiftCard);
+
+    res.status(201).json({
+      message: "Gift card sale created successfully.",
+      giftCard: newGiftCard,
+    });
   } catch (error) {
-    console.error(error);
+    console.error("❗ Error in createGiftCard handler:");
+    console.error("Message:", error.message);
+    if (error.stack) console.error("Stack:", error.stack);
     res.status(500).json({ message: "Server error." });
   }
 };
-
 
 
 

@@ -1,5 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Dimensions,
@@ -16,13 +17,15 @@ import {
 
 const { width, height } = Dimensions.get('window');
 
-
-const BASE_URL = 'http://localhost:5000/api/users';
+const BASE_URL = 'https://trader-pmqb.onrender.com/api/users';
 
 const GiftCardAuth = () => {
   const router = useRouter();
 
-  const [isSignUp, setIsSignUp] = useState(false);
+ const [isSignUp, setIsSignUp] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -33,6 +36,17 @@ const GiftCardAuth = () => {
     bankName: '',
   });
 
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const userId = await AsyncStorage.getItem('userId');
+      if (userId) {
+        router.replace('/home/home');
+      }
+    };
+    checkUser();
+  }, []);
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -40,68 +54,86 @@ const GiftCardAuth = () => {
     }));
   };
 
-  const handleAuth = async () => {
-    if (isSignUp) {
-      if (formData.password !== formData.confirmPassword) {
-        Alert.alert('Error', 'Passwords do not match');
-        return;
-      }
-      if (!formData.fullName.trim()) {
-        Alert.alert('Error', 'Please enter your full name');
-        return;
-      }
-    }
-
-    if (!formData.email.trim() || !formData.password.trim()) {
-      Alert.alert('Error', 'Please fill in all required fields');
+const handleAuth = async () => {
+  if (isSignUp) {
+    if (formData.password !== formData.confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
       return;
     }
-
-    try {
-      const endpoint = isSignUp ? `${BASE_URL}/signup` : `${BASE_URL}/login`;
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          isSignUp
-            ? {
-                name: formData.fullName,
-                email: formData.email,
-                password: formData.password,
-                accountNumber: formData.accountNumber,
-                accountName: formData.accountName,
-                bankName: formData.bankName,
-              }
-            : {
-                email: formData.email,
-                password: formData.password,
-              }
-        ),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Authentication failed');
-      }
-
-      Alert.alert(
-        'Success',
-        `${isSignUp ? 'Account created' : 'Signed in'} successfully!`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              router.replace('/home/home');
-            },
-          },
-        ]
-      );
-    } catch (error) {
-      Alert.alert('Error', error.message);
+    if (!formData.fullName.trim()) {
+      Alert.alert('Error', 'Please enter your full name');
+      return;
     }
-  };
+  }
+
+  if (!formData.email.trim() || !formData.password.trim()) {
+    Alert.alert('Error', 'Please fill in all required fields');
+    return;
+  }
+
+  try {
+    setLoading(true);
+
+    const endpoint = isSignUp
+      ? `https://trader-pmqb.onrender.com/api/users/signup`
+      : `https://trader-pmqb.onrender.com/api/users/login`;
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(
+        isSignUp
+          ? {
+              name: formData.fullName,
+              email: formData.email,
+              password: formData.password,
+              accountNumber: formData.accountNumber,
+              accountName: formData.accountName,
+              bankName: formData.bankName,
+            }
+          : {
+              email: formData.email,
+              password: formData.password,
+            }
+      ),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Authentication failed');
+    }
+
+    // ✅ Save userId to AsyncStorage and log it
+    if (data.user && data.user.id) {
+      await AsyncStorage.setItem('userId', data.user.id);
+      const storedId = await AsyncStorage.getItem('userId');
+      console.log('✅ User ID stored in AsyncStorage:', storedId);
+    } else {
+      await AsyncStorage.removeItem('userId');
+      console.log('ℹ️ User ID not stored because rememberMe is off');
+    }
+
+    Alert.alert(
+      'Success',
+      `${isSignUp ? 'Account created' : 'Signed in'} successfully!`,
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            router.replace('/home/home');
+          },
+        },
+      ]
+    );
+  } catch (error) {
+    Alert.alert('Error', error.message);
+    console.error('❌ Auth error:', error.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const toggleMode = () => {
     setIsSignUp(!isSignUp);
@@ -115,6 +147,7 @@ const GiftCardAuth = () => {
       bankName: '',
     });
   };
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -233,6 +266,15 @@ const GiftCardAuth = () => {
                 </View>
               </>
             )}
+<View style={styles.rememberMeContainer}>
+  <TouchableOpacity
+    onPress={() => setRememberMe(!rememberMe)}
+    style={styles.checkboxRow}
+  >
+    <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]} />
+    <Text style={styles.rememberMeText}>Remember Me</Text>
+  </TouchableOpacity>
+</View>
 
             {!isSignUp && (
               <TouchableOpacity style={styles.forgotPassword}>
@@ -240,38 +282,30 @@ const GiftCardAuth = () => {
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity style={styles.authButton} onPress={handleAuth}>
+            <TouchableOpacity
+              style={[styles.authButton, loading && { opacity: 0.7 }]}
+              onPress={handleAuth}
+              disabled={loading}
+            >
               <Text style={styles.authButtonText}>
-                {isSignUp ? 'Create Account' : 'Sign In'}
+                {loading
+                  ? isSignUp
+                    ? 'Signing Up...'
+                    : 'Logging In...'
+                  : isSignUp
+                  ? 'Create Account'
+                  : 'Sign In'}
               </Text>
             </TouchableOpacity>
-
-            {/* <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
-            </View> */}
-
-            {/* <TouchableOpacity style={styles.socialButton}>
-              <Text style={styles.socialButtonText}>Continue with Google</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.socialButton}>
-              <Text style={styles.socialButtonText}>Continue with Apple</Text>
-            </TouchableOpacity> */}
           </View>
 
           {/* Toggle Mode */}
           <View style={styles.toggleContainer}>
             <Text style={styles.toggleText}>
-              {isSignUp
-                ? 'Already have an account? '
-                : "Don't have an account? "}
+              {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
             </Text>
             <TouchableOpacity onPress={toggleMode}>
-              <Text style={styles.toggleButton}>
-                {isSignUp ? 'Sign In' : 'Sign Up'}
-              </Text>
+              <Text style={styles.toggleButton}>{isSignUp ? 'Sign In' : 'Sign Up'}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -279,7 +313,6 @@ const GiftCardAuth = () => {
     </SafeAreaView>
   );
 };
-
 
 
 const styles = StyleSheet.create({
@@ -440,6 +473,35 @@ const styles = StyleSheet.create({
     fontSize: width * 0.04,
     fontWeight: '600',
   },
+  rememberMeContainer: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginBottom: 16,
+},
+
+checkboxRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+},
+
+checkbox: {
+  width: 20,
+  height: 20,
+  borderWidth: 1,
+  borderColor: '#ccc',
+  borderRadius: 4,
+  marginRight: 8,
+},
+
+checkboxChecked: {
+  backgroundColor: '#007bff',
+},
+
+rememberMeText: {
+  fontSize: 14,
+  color: '#555',
+},
+
 });
 
 export default GiftCardAuth;
