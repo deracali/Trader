@@ -59,6 +59,20 @@ export const createGiftCard = async (req, res) => {
       return res.status(400).json({ message: "Please provide all required fields." });
     }
 
+    // Parse numbers safely
+    const parsedAmount = Number(amount.toString().replace(/,/g, ""));
+    const parsedNgnAmount = Number(ngnAmount.toString().replace(/,/g, ""));
+    const parsedExchangeRate = Number(exchangeRate.toString().replace(/,/g, ""));
+
+    // Check for NaN
+    if (
+      isNaN(parsedAmount) ||
+      isNaN(parsedNgnAmount) ||
+      isNaN(parsedExchangeRate)
+    ) {
+      return res.status(400).json({ message: "Amount, NGN amount, or exchange rate is invalid." });
+    }
+
     // Validate image upload
     if (!req.files || !req.files.image) {
       console.warn("⚠️ No image uploaded in request.");
@@ -84,12 +98,12 @@ export const createGiftCard = async (req, res) => {
     // Save gift card data to DB
     const newGiftCard = await GiftCard.create({
       type,
-      amount,
+      amount: parsedAmount,
       currency,
       cardNumber,
       imageUrl,
-      ngnAmount,
-      exchangeRate,
+      ngnAmount: parsedNgnAmount,
+      exchangeRate: parsedExchangeRate,
       user,
       userDescription,
       status: "pending",
