@@ -6,6 +6,7 @@ const App = () => (
     <Stack.Screen name="home/home" options={{ headerShown: false }} />
     <Stack.Screen name="form/cardForm" options={{ headerShown: false }} />
     <Stack.Screen name="profile/profile" options={{ headerShown: false }} />
+    <Stack.Screen name="success/successScreen" options={{ headerShown: false }} />
   </Stack>
 );
 

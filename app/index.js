@@ -104,15 +104,24 @@ const handleAuth = async () => {
       throw new Error(data.message || 'Authentication failed');
     }
 
-    // ✅ Save userId to AsyncStorage and log it
-    if (data.user && data.user.id) {
-      await AsyncStorage.setItem('userId', data.user.id);
-      const storedId = await AsyncStorage.getItem('userId');
-      console.log('✅ User ID stored in AsyncStorage:', storedId);
-    } else {
-      await AsyncStorage.removeItem('userId');
-      console.log('ℹ️ User ID not stored because rememberMe is off');
-    }
+    // ✅ Save details to AsyncStorage
+   if (data.user && data.user.id) {
+  await AsyncStorage.setItem('userId', data.user.id);
+
+  if (data.user.accountNumber)
+    await AsyncStorage.setItem('accountNumber', data.user.accountNumber);
+  if (data.user.accountName)
+    await AsyncStorage.setItem('accountName', data.user.accountName);
+  if (data.user.bankName)
+    await AsyncStorage.setItem('bankName', data.user.bankName);
+  if (data.user.email)
+    await AsyncStorage.setItem('email', data.user.email);
+  if (data.user.name)
+    await AsyncStorage.setItem('fullName', data.user.name);
+
+  console.log('✅ User data saved to AsyncStorage');
+}
+
 
     Alert.alert(
       'Success',

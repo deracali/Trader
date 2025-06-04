@@ -30,6 +30,9 @@ const GiftCardPurchaseForm = () => {
   const [cardImage, setCardImage] = useState(null);
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+const [userDescription, setUserDescription] = useState('');
+
+
 
   // pull in your param
   const { card } = useLocalSearchParams();
@@ -281,7 +284,8 @@ const handlePurchase = async () => {
     formData.append('ngnAmount', ngnAmount);
     formData.append('exchangeRate', cardExchangeRates[selectedCard]);
     formData.append('user', storedUserId);
-    formData.append('userDescription', ''); // Optional
+    formData.append('userDescription', userDescription);
+
 
     // Append image file
     if (cardImage && cardImage.uri) {
@@ -446,6 +450,22 @@ const handlePurchase = async () => {
             />
             {errors.cardNumber && <Text style={styles.errorText}>{errors.cardNumber}</Text>}
           </View>
+
+
+          {/* User Description Input */}
+<View style={styles.inputContainer}>
+  <Text style={styles.label}>Description (optional)</Text>
+  <TextInput
+    style={styles.input}
+    value={userDescription}
+    onChangeText={setUserDescription}
+    placeholder="Describe the card, e.g. unused, with receipt..."
+    placeholderTextColor="#9ca3af"
+    multiline
+    numberOfLines={3}
+  />
+</View>
+
 
           {/* Card Image Upload */}
           <View style={styles.inputContainer}>
