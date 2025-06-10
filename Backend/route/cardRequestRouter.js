@@ -4,6 +4,7 @@ import {
     createGiftCard,
     deleteAllGiftCards,
     getAllGiftCards,
+    getUserAchievements,
     updateGiftCard,
 } from "../controller/cardRequestController.js";
 
@@ -23,5 +24,10 @@ giftcardRouter.get("/get", getAllGiftCards);
 
 // Delete all gift cards (careful!)
 giftcardRouter.delete("/delete", deleteAllGiftCards);
+
+
+
+
+giftcardRouter.get("/achievements", getUserAchievements);
 
 export default giftcardRouter;

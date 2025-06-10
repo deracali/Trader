@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -25,12 +26,12 @@ const ProfilePage = () => {
 
   // User details state
 const [userDetails, setUserDetails] = useState({
-  fullName: 'John Doe',
-  email: 'john.doe@email.com',
-  accountNumber: '1234567890',
-  bankName: 'First National Bank',
-  memberSince: 'Jan 2024',
-  status: 'Premium Member',
+  fullName: '',
+  email: '',
+  accountNumber: '',
+  bankName: '',
+  memberSince: '',
+  status: '',
 });
 
 useEffect(() => {
@@ -41,9 +42,7 @@ useEffect(() => {
       const accountNumber = await AsyncStorage.getItem('accountNumber');
       const bankName = await AsyncStorage.getItem('bankName');
 console.log(email)
-      // Safely extract first name if needed
-      const nameParts = fullName?.split(' ') || [];
-      const firstName = nameParts[0] || 'John';
+    
 
       setUserDetails(prev => ({
         ...prev,
@@ -55,7 +54,6 @@ console.log(email)
 
       console.log('✅ Loaded user data:', {
         fullName,
-        firstName,
         email,
         accountNumber,
         bankName
@@ -75,71 +73,144 @@ console.log(email)
   // Temporary state for editing
   const [editingDetails, setEditingDetails] = useState({...userDetails});
 
-  const achievements = [
-    {
-      id: 1,
-      title: 'First Purchase',
-      description: 'Made your first gift card purchase',
-      icon: '🎉',
-      earned: true,
-      date: '2024-01-15',
-      color: '#6366f1'
-    },
-    {
-      id: 2,
-      title: 'Big Spender',
-      description: 'Spent over $500 on gift cards',
-      icon: '💰',
-      earned: true,
-      date: '2024-02-20',
-      color: '#10b981'
-    },
-    {
-      id: 3,
-      title: 'Streak Master',
-      description: 'Made purchases for 7 consecutive days',
-      icon: '🔥',
-      earned: true,
-      date: '2024-03-10',
-      color: '#f59e0b'
-    },
-    {
-      id: 4,
-      title: 'Category Explorer',
-      description: 'Purchased from 10 different categories',
-      icon: '🗺️',
-      earned: false,
-      progress: 7,
-      total: 10,
-      color: '#8b5cf6'
-    },
-    {
-      id: 5,
-      title: 'Loyalty Member',
-      description: 'Been a member for over 6 months',
-      icon: '👑',
-      earned: true,
-      date: '2024-04-01',
-      color: '#f97316'
-    },
-    {
-      id: 6,
-      title: 'Gift Master',
-      description: 'Purchased 50 gift cards',
-      icon: '🎁',
-      earned: false,
-      progress: 32,
-      total: 50,
-      color: '#ec4899'
-    }
-  ];
+  // const achievements = [
+  //   {
+  //     id: 1,
+  //     title: 'First Purchase',
+  //     description: 'Made your first gift card purchase',
+  //     icon: '🎉',
+  //     earned: true,
+  //     date: '2024-01-15',
+  //     color: '#6366f1'
+  //   },
+  //   {
+  //     id: 2,
+  //     title: 'Big Spender',
+  //     description: 'Spent over $500 on gift cards',
+  //     icon: '💰',
+  //     earned: true,
+  //     date: '2024-02-20',
+  //     color: '#10b981'
+  //   },
+  //   {
+  //     id: 3,
+  //     title: 'Streak Master',
+  //     description: 'Made purchases for 7 consecutive days',
+  //     icon: '🔥',
+  //     earned: true,
+  //     date: '2024-03-10',
+  //     color: '#f59e0b'
+  //   },
+  //   {
+  //     id: 4,
+  //     title: 'Category Explorer',
+  //     description: 'Purchased from 10 different categories',
+  //     icon: '🗺️',
+  //     earned: false,
+  //     progress: 7,
+  //     total: 10,
+  //     color: '#8b5cf6'
+  //   },
+  //   {
+  //     id: 5,
+  //     title: 'Loyalty Member',
+  //     description: 'Been a member for over 6 months',
+  //     icon: '👑',
+  //     earned: true,
+  //     date: '2024-04-01',
+  //     color: '#f97316'
+  //   },
+  //   {
+  //     id: 6,
+  //     title: 'Gift Master',
+  //     description: 'Purchased 50 gift cards',
+  //     icon: '🎁',
+  //     earned: false,
+  //     progress: 32,
+  //     total: 50,
+  //     color: '#ec4899'
+  //   }
+  // ];
 
-  const stats = [
-    { label: 'Total Spent', value: '$1,247', icon: '💵' },
-    { label: 'Cards Bought', value: '32', icon: '🎯' },
-    { label: 'Days Active', value: '156', icon: '📅' },
-    { label: 'Achievements', value: '4/6', icon: '🏆' }
-  ];
+  const [achievements, setAchievements] = useState([]);
+
+useEffect(() => {
+  const fetchAchievements = async () => {
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) return;
+
+      const res = await axios.get(`https://trader-pmqb.onrender.com/api/achievements/${userId}`);
+      setAchievements(res.data);
+    } catch (err) {
+      console.error('Error fetching achievements:', err);
+    }
+  };
+
+  fetchAchievements();
+}, []);
+
+ const [stats, setStats] = useState([
+    { label: 'Total Spent', value: '₦0', icon: '💵' },
+    { label: 'Cards Bought', value: '0', icon: '🎯' },
+    { label: 'Days Active', value: '0', icon: '📅' },
+    { label: 'Achievements', value: '0/6', icon: '🏆' }
+  ]);
+
+
+useEffect(() => {
+  const fetchStats = async () => {
+    try {
+      console.log('📦 Fetching userId from AsyncStorage...');
+      const userId = await AsyncStorage.getItem('userId');
+      console.log('🧾 Raw userId from AsyncStorage:', userId);
+
+      if (!userId) {
+        console.warn('⚠️ No userId found in AsyncStorage.');
+        return;
+      }
+
+      console.log('📡 Fetching gift cards from server...');
+      const res = await axios.get('https://trader-pmqb.onrender.com/api/gift-cards/get');
+
+      console.log('✅ Gift cards response:', res.data);
+      const giftCards = res.data?.data || [];
+
+      const userCards = giftCards.filter(
+        card => card.user?._id === userId && card.status === 'successful'
+      );
+      console.log(`🎯 Filtered userCards (${userCards.length}):`, userCards);
+
+      const totalSpent = userCards.reduce((sum, card) => sum + card.ngnAmount, 0);
+      console.log('💰 Total spent:', totalSpent);
+
+      const totalCards = userCards.length;
+      console.log('🧾 Total cards:', totalCards);
+
+      const dates = userCards.map(card => new Date(card.createdAt));
+      const daysActive =
+        dates.length > 0
+          ? Math.ceil((Math.max(...dates) - Math.min(...dates)) / (1000 * 60 * 60 * 24)) + 1
+          : 0;
+      console.log('📅 Days active:', daysActive);
+
+      const achievements = Math.min(6, Math.floor(totalCards / 10));
+      console.log('🏆 Achievements:', achievements);
+
+      setStats([
+        { label: 'Total Spent', value: `₦${totalSpent.toLocaleString()}`, icon: '💵' },
+        { label: 'Cards Bought', value: `${totalCards}`, icon: '🎯' },
+        { label: 'Days Active', value: `${daysActive}`, icon: '📅' },
+        { label: 'Achievements', value: `${achievements}/6`, icon: '🏆' }
+      ]);
+    } catch (err) {
+      console.error('❌ Error fetching stats:', err);
+    }
+  };
+
+  fetchStats();
+}, []);
+
 
 
 
@@ -214,11 +285,41 @@ const userGiftCards = giftCardsArray
   }, []);
 
 
-  const handleSaveDetails = () => {
-    setUserDetails({...editingDetails});
+const handleSaveDetails = async () => {
+  try {
+    const userId = await AsyncStorage.getItem('userId');
+    if (!userId) {
+      Alert.alert('Error', 'User ID not found.');
+      return;
+    }
+
+    const payload = {
+      name: editingDetails.name || '',
+      email: editingDetails.email || '',
+      accountNumber: editingDetails.accountNumber || '',
+      bankName: editingDetails.bankName || ''
+    };
+
+    const response = await axios.put(`https://trader-pmqb.onrender.com/api/users/update/${userId}`, payload);
+
+    console.log('✅ User update response:', response.data);
+
+    // Save non-null values only
+    if (payload.name) await AsyncStorage.setItem('fullName', payload.name);
+    if (payload.email) await AsyncStorage.setItem('email', payload.email);
+    if (payload.accountNumber) await AsyncStorage.setItem('accountNumber', payload.accountNumber);
+    if (payload.bankName) await AsyncStorage.setItem('bankName', payload.bankName);
+
+    setUserDetails({ ...editingDetails });
     setIsEditModalVisible(false);
     Alert.alert('Success', 'Profile details updated successfully!');
-  };
+  } catch (error) {
+    console.error('❌ Error updating user:', error);
+    Alert.alert('Error', 'Failed to update profile. Please try again.');
+  }
+};
+
+
 
   const handleCancelEdit = () => {
     setEditingDetails({...userDetails});
@@ -250,7 +351,7 @@ const handleLogout = () => {
             ]);
             console.log('✅ User data removed from AsyncStorage');
             // Redirect to login screen
-            router.push('/index'); // Adjust this path if needed
+            router.push('/'); // Adjust this path if needed
           } catch (error) {
             console.error('❌ Error during logout:', error.message);
           }
@@ -259,6 +360,41 @@ const handleLogout = () => {
     ]
   );
 };
+
+
+ const [userData, setUserData] = useState(null);
+
+  const fetchUserData = async () => {
+    try {
+      const userId = await AsyncStorage.getItem('userId'); // Ensure key is lowercase or as saved
+      if (!userId) return;
+
+      const response = await axios.get(`https://trader-pmqb.onrender.com/api/users/get/${userId}`);
+      setUserData(response.data);
+    } catch (error) {
+      console.error('Failed to fetch user data:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserData();
+  }, []);
+
+  if (!userData) return null; // or a loading spinner
+
+
+const handleOpenEditModal = () => {
+  setEditingDetails({
+    name: userDetails.fullName || '',
+    email: userDetails.email || '',
+    accountNumber: userDetails.accountNumber || '',
+    bankName: userDetails.bankName || '',
+  });
+  setIsEditModalVisible(true);
+};
+
+
+
 
   const renderEditModal = () => (
     <Modal
@@ -339,12 +475,13 @@ const handleLogout = () => {
               <Text style={styles.headerTitle}>Your Profile</Text>
             </View>
 
-            <TouchableOpacity 
-              onPress={() => setIsEditModalVisible(true)}
-              style={styles.editButton}
-            >
-              <Ionicons name="create-outline" size={20} color="#6366f1" />
-            </TouchableOpacity>
+          <TouchableOpacity 
+  onPress={handleOpenEditModal}
+  style={styles.editButton}
+>
+  <Ionicons name="create-outline" size={20} color="#6366f1" />
+</TouchableOpacity>
+
           </View>
         </View>
 
@@ -359,7 +496,7 @@ const handleLogout = () => {
             <View style={styles.profileDetails}>
               <Text style={styles.profileName}>{userDetails.name}</Text>
               <Text style={styles.profileStatus}>{userDetails.status}</Text>
-              <Text style={styles.profileMember}>Member since {userDetails.memberSince}</Text>
+              <Text style={styles.profileMember}>Member since {userDetails.createdAt}</Text>
             </View>
           </View>
           
@@ -398,21 +535,27 @@ const handleLogout = () => {
             </View>
           </View>
           
-          <View style={styles.levelContainer}>
-            <View style={styles.levelHeader}>
-              <View>
-                <Text style={styles.levelText}>Member Level</Text>
-                <Text style={styles.levelValue}>Gold Member</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.levelText}>Next Level</Text>
-                <Text style={[styles.levelValue, { color: '#8b5cf6' }]}>Platinum (87%)</Text>
-              </View>
-            </View>
-            <View style={styles.progressBar}>
-              <View style={styles.progressFill} />
-            </View>
-          </View>
+       <View style={styles.levelContainer}>
+      <View style={styles.levelHeader}>
+        <View>
+          <Text style={styles.levelText}>Member Level</Text>
+          <Text style={styles.levelValue}>{userData.memberLevel} Member</Text>
+        </View>
+        <View style={{ alignItems: 'flex-end' }}>
+          <Text style={styles.levelText}>Next Level</Text>
+          <Text style={[styles.levelValue, { color: '#8b5cf6' }]}>
+            {userData.nextLevel
+              ? `${userData.nextLevel} (${userData.progressPercent}%)`
+              : 'Max Level'}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.progressBar}>
+        <View
+          style={[styles.progressFill, { width: `${userData.progressPercent}%` }]}
+        />
+      </View>
+    </View>
         </View>
 
         {/* Stats Grid */}

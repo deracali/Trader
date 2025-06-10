@@ -47,6 +47,7 @@ export const createUser = async (req, res) => {
         id: savedUser._id,
         name: savedUser.name,
         email: savedUser.email,
+        createdAt: savedUser.createdAt,
       },
       token
     });
@@ -80,6 +81,7 @@ export const loginUser = async (req, res) => {
         accountNumber:user.accountNumber,
         accountName:user.accountName,
         bankName:user.bankName,
+        createdAt: user.createdAt
       },
       token
     });
@@ -117,11 +119,44 @@ export const getUserById = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json(user);
+
+    const now = new Date();
+    const createdAt = new Date(user.createdAt);
+    const diffInMonths = (now - createdAt) / (1000 * 60 * 60 * 24 * 30); // Approx
+
+    let memberLevel = 'Bronze';
+    let progressPercent = 0;
+    let nextLevel = 'Silver';
+
+    if (diffInMonths >= 6) {
+      memberLevel = 'Platinum';
+      progressPercent = 100;
+      nextLevel = null;
+    } else if (diffInMonths >= 3) {
+      memberLevel = 'Gold';
+      progressPercent = Math.round((diffInMonths / 6) * 100);
+      nextLevel = 'Platinum';
+    } else if (diffInMonths >= 1) {
+      memberLevel = 'Silver';
+      progressPercent = Math.round((diffInMonths / 6) * 100);
+      nextLevel = 'Gold';
+    } else {
+      memberLevel = 'Bronze';
+      progressPercent = Math.round((diffInMonths / 6) * 100);
+      nextLevel = 'Silver';
+    }
+
+    res.json({
+      ...user.toObject(),
+      memberLevel,
+      progressPercent,
+      nextLevel,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 
 

@@ -54,6 +54,7 @@ const GiftCardAuth = () => {
     }));
   };
 
+
 const handleAuth = async () => {
   if (isSignUp) {
     if (formData.password !== formData.confirmPassword) {
@@ -119,6 +120,16 @@ const handleAuth = async () => {
   if (data.user.name)
     await AsyncStorage.setItem('fullName', data.user.name);
 
+
+   if (data.user.createdAt) {
+    const createdDate = new Date(data.user.createdAt);
+    const formattedDate = createdDate.toLocaleDateString('en-GB', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    await AsyncStorage.setItem('createdAt', formattedDate);
+  }
   console.log('✅ User data saved to AsyncStorage');
 }
 
