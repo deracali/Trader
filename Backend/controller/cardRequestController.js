@@ -230,20 +230,9 @@ export const getUserAchievements = async (req, res) => {
         earned: true,
         color: '#6366f1',
       });
-    } else {
-      // Show as unearned if no purchases yet
-      achievements.push({
-        id: 1,
-        title: 'First Purchase',
-        description: 'Made your first gift card purchase',
-        icon: '🎉',
-        earned: false,
-        progress: 0,
-        total: 1,
-        color: '#6366f1',
-      });
-    }
+    } 
 
+    
     // Big Spender
     const totalSpent = giftCards.reduce((sum, gc) => sum + gc.amount, 0);
     if (totalSpent > 500) {
