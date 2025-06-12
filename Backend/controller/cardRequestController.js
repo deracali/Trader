@@ -215,13 +215,25 @@ export const deleteAllGiftCards = async (req, res) => {
 export const getUserAchievements = async (req, res) => {
   const { userId } = req.params;
 
+  // 1. Validate & cast the userId to an ObjectId
+  if (!mongoose.isValidObjectId(userId)) {
+    return res.status(400).json({ error: 'Invalid userId' });
+  }
+  const userObjectId = mongoose.Types.ObjectId(userId);
+
   try {
-    const giftCards = await GiftCard.find({ user: userId, status: 'successful' }).sort({ createdAt: 1 });
-    const user = await User.findById(userId);
+    // 2. Query with the ObjectId
+    const giftCards = await GiftCard
+      .find({ user: userObjectId, status: 'successful' })
+      .sort({ createdAt: 1 });
+
+    // 3. Load the user record
+    const user = await User.findById(userObjectId);
 
     const achievements = [];
 
-   if (giftCards.length >= 1) {
+    // First Purchase
+    if (giftCards.length >= 1) {
       achievements.push({
         id: 1,
         title: 'First Purchase',
@@ -232,7 +244,6 @@ export const getUserAchievements = async (req, res) => {
         color: '#6366f1',
       });
     } else {
-      // Show as unearned if no purchases yet
       achievements.push({
         id: 1,
         title: 'First Purchase',
@@ -263,7 +274,9 @@ export const getUserAchievements = async (req, res) => {
     const dateSet = new Set(giftCards.map(gc => new Date(gc.createdAt).toDateString()));
     let streak = 1;
     let maxStreak = 1;
-    const sortedDates = Array.from(dateSet).map(d => new Date(d)).sort((a, b) => a - b);
+    const sortedDates = Array.from(dateSet)
+      .map(d => new Date(d))
+      .sort((a, b) => a - b);
 
     for (let i = 1; i < sortedDates.length; i++) {
       const diff = (sortedDates[i] - sortedDates[i - 1]) / (1000 * 3600 * 24);
@@ -290,7 +303,6 @@ export const getUserAchievements = async (req, res) => {
     // Category Explorer (10 unique types)
     const categorySet = new Set(giftCards.map(gc => gc.type));
     const categoryCount = categorySet.size;
-
     if (categoryCount >= 10) {
       achievements.push({
         id: 4,
@@ -317,8 +329,9 @@ export const getUserAchievements = async (req, res) => {
     // Loyalty Member (registered over 6 months ago)
     const now = new Date();
     const memberDurationInMonths =
-      user && user.createdAt ? (now - new Date(user.createdAt)) / (1000 * 3600 * 24 * 30) : 0;
-
+      user && user.createdAt
+        ? (now - new Date(user.createdAt)) / (1000 * 3600 * 24 * 30)
+        : 0;
     if (memberDurationInMonths >= 6) {
       achievements.push({
         id: 5,
@@ -355,9 +368,9 @@ export const getUserAchievements = async (req, res) => {
       });
     }
 
-    res.json(achievements);
+    return res.json(achievements);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to load achievements' });
+    console.error('Error in getUserAchievements:', err);
+    return res.status(500).json({ error: 'Failed to load achievements' });
   }
 };
