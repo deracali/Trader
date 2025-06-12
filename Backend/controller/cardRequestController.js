@@ -217,10 +217,10 @@ export const getUserAchievements = async (req, res) => {
   const { userId } = req.params;
 
   // 1. Validate & cast the userId to an ObjectId
-  if (!mongoose.isValidObjectId(userId)) {
-    return res.status(400).json({ error: 'Invalid userId' });
-  }
-  const userObjectId = mongoose.Types.ObjectId(userId);
+ if (!mongoose.Types.ObjectId.isValid(userId)) {
+  return res.status(400).json({ error: 'Invalid userId' });
+}
+const userObjectId = new mongoose.Types.ObjectId(userId);
 
   try {
     // 2. Query with the ObjectId
