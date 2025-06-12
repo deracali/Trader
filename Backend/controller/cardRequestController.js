@@ -1,6 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
 import dotenv from 'dotenv';
-import mongoose from "mongoose";
 import GiftCard from "../model/cardRequestModel.js";
 import User from '../model/userModel.js';
 
@@ -216,35 +215,23 @@ export const deleteAllGiftCards = async (req, res) => {
 export const getUserAchievements = async (req, res) => {
   const { userId } = req.params;
 
-  // 1. Validate & cast the userId to an ObjectId
- if (!mongoose.Types.ObjectId.isValid(userId)) {
-  return res.status(400).json({ error: 'Invalid userId' });
-}
-const userObjectId = new mongoose.Types.ObjectId(userId);
-
   try {
-    // 2. Query with the ObjectId
-    const giftCards = await GiftCard
-      .find({ user: userObjectId, status: 'successful' })
-      .sort({ createdAt: 1 });
-
-    // 3. Load the user record
-    const user = await User.findById(userObjectId);
+    const giftCards = await GiftCard.find({ user: userId, status: 'successful' }).sort({ createdAt: 1 });
+    const user = await User.findById(userId);
 
     const achievements = [];
 
-    // First Purchase
-    if (giftCards.length >= 1) {
+   if (giftCards.length >= 1) {
       achievements.push({
         id: 1,
         title: 'First Purchase',
         description: 'Made your first gift card purchase',
         icon: '🎉',
         earned: true,
-        date: giftCards[0].createdAt,
         color: '#6366f1',
       });
     } else {
+      // Show as unearned if no purchases yet
       achievements.push({
         id: 1,
         title: 'First Purchase',
@@ -275,9 +262,7 @@ const userObjectId = new mongoose.Types.ObjectId(userId);
     const dateSet = new Set(giftCards.map(gc => new Date(gc.createdAt).toDateString()));
     let streak = 1;
     let maxStreak = 1;
-    const sortedDates = Array.from(dateSet)
-      .map(d => new Date(d))
-      .sort((a, b) => a - b);
+    const sortedDates = Array.from(dateSet).map(d => new Date(d)).sort((a, b) => a - b);
 
     for (let i = 1; i < sortedDates.length; i++) {
       const diff = (sortedDates[i] - sortedDates[i - 1]) / (1000 * 3600 * 24);
@@ -296,7 +281,6 @@ const userObjectId = new mongoose.Types.ObjectId(userId);
         description: 'Made purchases for 7 consecutive days',
         icon: '🔥',
         earned: true,
-        date: sortedDates[0],
         color: '#f59e0b',
       });
     }
@@ -304,6 +288,7 @@ const userObjectId = new mongoose.Types.ObjectId(userId);
     // Category Explorer (10 unique types)
     const categorySet = new Set(giftCards.map(gc => gc.type));
     const categoryCount = categorySet.size;
+
     if (categoryCount >= 10) {
       achievements.push({
         id: 4,
@@ -311,7 +296,6 @@ const userObjectId = new mongoose.Types.ObjectId(userId);
         description: 'Purchased from 10 different categories',
         icon: '🗺️',
         earned: true,
-        date: giftCards.find(gc => categorySet.has(gc.type))?.createdAt,
         color: '#8b5cf6',
       });
     } else {
@@ -330,9 +314,8 @@ const userObjectId = new mongoose.Types.ObjectId(userId);
     // Loyalty Member (registered over 6 months ago)
     const now = new Date();
     const memberDurationInMonths =
-      user && user.createdAt
-        ? (now - new Date(user.createdAt)) / (1000 * 3600 * 24 * 30)
-        : 0;
+      user && user.createdAt ? (now - new Date(user.createdAt)) / (1000 * 3600 * 24 * 30) : 0;
+
     if (memberDurationInMonths >= 6) {
       achievements.push({
         id: 5,
@@ -353,7 +336,6 @@ const userObjectId = new mongoose.Types.ObjectId(userId);
         description: 'Purchased 50 gift cards',
         icon: '🎁',
         earned: true,
-        date: giftCards[49].createdAt,
         color: '#ec4899',
       });
     } else {
@@ -369,9 +351,9 @@ const userObjectId = new mongoose.Types.ObjectId(userId);
       });
     }
 
-    return res.json(achievements);
+    res.json(achievements);
   } catch (err) {
-    console.error('Error in getUserAchievements:', err);
-    return res.status(500).json({ error: 'Failed to load achievements' });
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load achievements' });
   }
 };
