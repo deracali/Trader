@@ -28,6 +28,6 @@ giftcardRouter.delete("/delete", deleteAllGiftCards);
 
 
 
-giftcardRouter.get("/achievements", getUserAchievements);
+giftcardRouter.get("/achievements/:id", getUserAchievements);
 
 export default giftcardRouter;
