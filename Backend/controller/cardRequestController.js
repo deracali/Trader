@@ -1,6 +1,8 @@
 import { v2 as cloudinary } from "cloudinary";
 import dotenv from 'dotenv';
 import GiftCard from "../model/cardRequestModel.js";
+import User from '../model/userModel.js';
+
 // Cloudinary Configuration
 dotenv.config();
 
@@ -179,14 +181,17 @@ export const updateGiftCard = async (req, res) => {
 // GET /api/gift-cards
 export const getAllGiftCards = async (req, res) => {
   try {
-    const giftCards = await GiftCard.find().populate("user", "name email");
+    const giftCards = await GiftCard
+      .find()                      // get all cards
+      .sort({ createdAt: -1 })     // newest first
+      .populate('user', 'name email'); // join user info
+
     res.json({ success: true, data: giftCards });
   } catch (err) {
-    console.error("Get All Gift Cards Error:", err);
-    res.status(500).json({ error: "Server error" });
+    console.error('Get All Gift Cards Error:', err);
+    res.status(500).json({ success: false, error: 'Server error' });
   }
 };
-
 
 
 
