@@ -221,8 +221,7 @@ export const getUserAchievements = async (req, res) => {
 
     const achievements = [];
 
-    // First Purchase
-    if (giftCards.length >= 1) {
+   if (giftCards.length >= 1) {
       achievements.push({
         id: 1,
         title: 'First Purchase',
@@ -230,6 +229,18 @@ export const getUserAchievements = async (req, res) => {
         icon: '🎉',
         earned: true,
         date: giftCards[0].createdAt,
+        color: '#6366f1',
+      });
+    } else {
+      // Show as unearned if no purchases yet
+      achievements.push({
+        id: 1,
+        title: 'First Purchase',
+        description: 'Made your first gift card purchase',
+        icon: '🎉',
+        earned: false,
+        progress: 0,
+        total: 1,
         color: '#6366f1',
       });
     }
