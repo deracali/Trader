@@ -480,10 +480,10 @@
                                 </div>
                             </div>
 
-                            <div class="form-group" style="margin-top: 1rem;">
+                            <!-- <div class="form-group" style="margin-top: 1rem;">
                                 <label class="form-label">Image URL</label>
                                 <input type="url" class="form-input" id="image" placeholder="https://example.com/image.jpg">
-                            </div>
+                            </div> -->
 
                             <div class="checkbox-group" style="margin-top: 1rem;">
                                 <input type="checkbox" class="checkbox" id="popular">
@@ -523,50 +523,41 @@
 
     <script>
         // Global state
-        let cards = [
-            {
-                _id: '1',
-                name: 'Amazon Gift Card',
-                category: 'E-commerce',
-                discount: '10%',
-                image: 'https://via.placeholder.com/200x120/FF9900/FFFFFF?text=Amazon',
-                color: '#FF9900',
-                popular: true,
-                cardLimit: 100,
-                types: [
-                    { country: 'US', rate: 0.85, currency: 'USD' },
-                    { country: 'UK', rate: 0.82, currency: 'GBP' }
-                ]
-            },
-            {
-                _id: '2',
-                name: 'iTunes Gift Card',
-                category: 'Entertainment',
-                discount: '15%',
-                image: 'https://via.placeholder.com/200x120/000000/FFFFFF?text=iTunes',
-                color: '#000000',
-                popular: false,
-                cardLimit: 50,
-                types: [
-                    { country: 'US', rate: 0.75, currency: 'USD' },
-                    { country: 'CA', rate: 0.78, currency: 'CAD' }
-                ]
-            },
-            {
-                _id: '3',
-                name: 'Google Play Card',
-                category: 'Gaming',
-                discount: '12%',
-                image: 'https://via.placeholder.com/200x120/4285F4/FFFFFF?text=Google+Play',
-                color: '#4285F4',
-                popular: true,
-                cardLimit: 75,
-                types: [
-                    { country: 'US', rate: 0.80, currency: 'USD' },
-                    { country: 'EU', rate: 0.77, currency: 'EUR' }
-                ]
+      let cards = [];
+
+    // Fetch cards from the backend and then render them
+ function fetchCards() {
+    fetch('https://trader-pmqb.onrender.com/api/cards/get')
+        .then(response => response.json())
+        .then(result => {
+            if (Array.isArray(result.data)) {
+                cards = result.data;
+                renderCards();
+            } else {
+                console.error('Unexpected response format:', result);
             }
-        ];
+        })
+        .catch(error => {
+            console.error('Failed to fetch cards:', error);
+        });
+}
+fetchCards()
+
+    const emojiMap = {
+    "Amazon": "🛒",
+    "iTunes": "🎵",
+    "Google Play": "▶️",
+    "Apple": "🍎",
+    "Target": "🎯",
+    "Steam": "🎮",
+    "Netflix": "📺",
+    "Walmart": "🏪",
+    "eBay": "💰",
+    "PlayStation": "🕹️",
+    "Roblox": "🧱",
+    "Spotify": "🎧"
+};
+
 
         let editingCard = null;
 
@@ -592,9 +583,9 @@
             cardDiv.className = 'card';
             cardDiv.innerHTML = `
                 <div class="card-image" style="background-color: ${card.color}">
-                    <img src="${card.image}" alt="${card.name}">
-                    ${card.popular ? '<span class="popular-badge">Popular</span>' : ''}
-                </div>
+            <div class="emoji-image">${emojiMap[card.name] || '🎁'}</div>
+            ${card.popular ? '<span class="popular-badge">Popular</span>' : ''}
+        </div>
                 <div class="card-content">
                     <div class="card-header">
                         <h3 class="card-title">${card.name}</h3>
@@ -662,7 +653,7 @@
             document.getElementById('name').value = card.name;
             document.getElementById('category').value = card.category;
             document.getElementById('discount').value = card.discount;
-            document.getElementById('image').value = card.image;
+           
             document.getElementById('color').value = card.color;
             document.getElementById('popular').checked = card.popular;
             document.getElementById('cardLimit').value = card.cardLimit;
@@ -765,42 +756,74 @@
         }
 
         // Save card
-        function saveCard() {
-            const form = document.getElementById('cardForm');
-            if (!form.checkValidity()) {
-                form.reportValidity();
-                return;
+      async function saveCard() {
+    const form = document.getElementById('cardForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const formData = {
+        name: document.getElementById('name').value,
+        category: document.getElementById('category').value,
+        discount: document.getElementById('discount').value,
+        color: document.getElementById('color').value,
+        popular: document.getElementById('popular').checked,
+        cardLimit: parseInt(document.getElementById('cardLimit').value) || 0,
+        types: getCurrentTypes().filter(type => type.country && type.currency)
+    };
+
+    try {
+        if (editingCard) {
+            // Update existing card on the server
+            const updateUrl = `https://trader-pmqb.onrender.com/api/cards/update/${editingCard._id}`;
+            const response = await fetch(updateUrl, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Update failed');
             }
 
-            const formData = {
-                name: document.getElementById('name').value,
-                category: document.getElementById('category').value,
-                discount: document.getElementById('discount').value,
-                image: document.getElementById('image').value,
-                color: document.getElementById('color').value,
-                popular: document.getElementById('popular').checked,
-                cardLimit: parseInt(document.getElementById('cardLimit').value) || 0,
-                types: getCurrentTypes().filter(type => type.country && type.currency)
-            };
+            alert('Card updated successfully');
+        } else {
+              const formData = {
+        name: document.getElementById('name').value,
+        category: document.getElementById('category').value,
+        discount: document.getElementById('discount').value,
+        color: document.getElementById('color').value,
+        popular: document.getElementById('popular').checked,
+        cardLimit: parseInt(document.getElementById('cardLimit').value) || 0,
+        types: getCurrentTypes().filter(type => type.country && type.currency)
+    };
+           // Create new card (Add)
+            const createUrl = 'https://trader-pmqb.onrender.com/api/cards/create';
+            const response = await fetch(createUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
 
-            if (editingCard) {
-                // Update existing card
-                const index = cards.findIndex(card => card._id === editingCard._id);
-                if (index !== -1) {
-                    cards[index] = { ...cards[index], ...formData };
-                }
-            } else {
-                // Add new card
-                const newCard = {
-                    ...formData,
-                    _id: Date.now().toString()
-                };
-                cards.push(newCard);
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Creation failed');
             }
 
-            renderCards();
-            closeModal();
+            alert('Card created successfully');
         }
+
+        closeModal();
+        fetchCards(); // Refresh card list
+        } catch (error) {
+        console.error('Error saving card:', error);
+        alert('Failed to save card. Please try again.');
+    }
+}
 
         // Initialize the app when page loads
         document.addEventListener('DOMContentLoaded', init);
