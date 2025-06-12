@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from "cloudinary";
 import dotenv from 'dotenv';
+import mongoose from "mongoose";
 import GiftCard from "../model/cardRequestModel.js";
 import User from '../model/userModel.js';
 
