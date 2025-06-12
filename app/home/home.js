@@ -1,15 +1,15 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-    Dimensions,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Dimensions,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import BottomTab from '../../components/tab/tab';
 
@@ -247,7 +247,7 @@ const giftCards = [
         })
       }
     >
-      <Text style={styles.buyButtonText}>Buy Now</Text>
+      <Text style={styles.buyButtonText}>Trade</Text>
     </TouchableOpacity>
     </TouchableOpacity>
   );

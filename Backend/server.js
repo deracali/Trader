@@ -2,7 +2,9 @@ import cors from "cors";
 import dotenv from 'dotenv';
 import express from 'express';
 import mongoose from 'mongoose';
+import adminRoute from "./route/adminRouter.js";
 import giftcardRouter from './route/cardRequestRouter.js';
+import cardRoutes from "./route/cardsRouter.js";
 import userRouter from './route/userRouter.js';
 
 
@@ -27,6 +29,8 @@ mongoose.connect(process.env.MONGO_URI, {
 // Routes
 app.use('/api/users', userRouter);
 app.use("/api/gift-cards", giftcardRouter);
+app.use('/api/admin', adminRoute);
+app.use('/api/cards', cardRoutes);
 
 
 app.get('/', (req, res) => {

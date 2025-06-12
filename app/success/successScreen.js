@@ -1,50 +1,83 @@
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 
 const { width, height } = Dimensions.get('window');
+const API_URL = 'https://trader-pmqb.onrender.com/api/gift-cards/get';
 
-const CardSuccessPage = ({ 
-  status = 'successful', // 'successful', 'pending', 'failed'
-  onContinue,
-  onGoHome 
-}) => {
-  const getStatusConfig = () => {
-    switch (status) {
-      case 'successful':
-        return {
-          icon: '✓',
-          color: '#10b981',
-          bgColor: '#ecfdf5',
-          borderColor: '#6ee7b7',
-          title: 'Card Request Successful!',
-          message: 'Your card is being processed',
-          description: 'Your card request has been successfully submitted and is now being processed. You will receive updates via SMS and email as your card moves through production.'
-        };
-      case 'pending':
-        return {
-          icon: '⏳',
-          color: '#f59e0b',
-          bgColor: '#fffbeb',
-          borderColor: '#fde68a',
-          title: 'Card Request Pending',
-          message: 'Your card is being processed',
-          description: 'Your card request is currently being reviewed. This may take a few minutes. Please do not close the app or navigate away from this page.'
-        };
-      case 'failed':
-        return {
-          icon: '✗',
-          color: '#ef4444',
-          bgColor: '#fef2f2',
-          borderColor: '#fecaca',
-          title: 'Card Request Failed',
-          message: 'Your card processing encountered an issue',
-          description: 'We encountered an issue while processing your card request. Please check your information and try again, or contact support if the problem persists.'
-        };
-      default:
-        return getStatusConfig('successful');
+const GiftCardStatusScreen = () => {
+  const [giftCard, setGiftCard] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    async function fetchGiftCard() {
+      try {
+        const res = await fetch(API_URL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setGiftCard({
+          status: data.status,
+          companyFeedback: data.companyFeedback,
+        });
+      } catch (err) {
+        console.error(err);
+        Alert.alert('Error', 'Could not fetch gift card status.');
+      } finally {
+        setLoading(false);
+      }
     }
-  };
+    fetchGiftCard();
+  }, []);
 
-  const statusConfig = getStatusConfig();
+  if (loading) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  const { status = 'successful', companyFeedback = '' } = giftCard || {};
+
+  // Only icon/title/message vary by status; no more hard-coded descriptions here
+  const statusConfig = {
+    successful: {
+      icon: '✓',
+      color: '#10b981',
+      bgColor: '#ecfdf5',
+      borderColor: '#6ee7b7',
+      title: 'Card Request Successful!',
+      message: 'Your card is being processed',
+    },
+    pending: {
+      icon: '⏳',
+      color: '#f59e0b',
+      bgColor: '#fffbeb',
+      borderColor: '#fde68a',
+      title: 'Card Request Pending',
+      message: 'Your card is being processed',
+    },
+    failed: {
+      icon: '✗',
+      color: '#ef4444',
+      bgColor: '#fef2f2',
+      borderColor: '#fecaca',
+      title: 'Card Request Failed',
+      message: 'Your card processing encountered an issue',
+    },
+  }[status] || statusConfig.successful;
+
+  const onContinue = () => router.push('/dashboard');
+  const onGoHome   = () => router.push('/');
 
   return (
     <View style={styles.container}>
@@ -61,16 +94,16 @@ const CardSuccessPage = ({
 
           {/* Status Container */}
           <View style={[
-            styles.statusContainer,
-            { 
-              backgroundColor: statusConfig.bgColor,
-              borderColor: statusConfig.borderColor 
-            }
-          ]}>
-            <View style={[
-              styles.statusIconContainer,
-              { backgroundColor: statusConfig.color }
+              styles.statusContainer,
+              { 
+                backgroundColor: statusConfig.bgColor,
+                borderColor: statusConfig.borderColor 
+              }
             ]}>
+            <View style={[
+                styles.statusIconContainer,
+                { backgroundColor: statusConfig.color }
+              ]}>
               <Text style={styles.statusIcon}>{statusConfig.icon}</Text>
             </View>
             
@@ -82,8 +115,9 @@ const CardSuccessPage = ({
               {statusConfig.message}
             </Text>
             
+            {/* ALWAYS show companyFeedback here */}
             <Text style={styles.statusDescription}>
-              {statusConfig.description}
+              {companyFeedback || 'No additional feedback available.'}
             </Text>
           </View>
 
@@ -107,7 +141,9 @@ const CardSuccessPage = ({
                   style={styles.authButton}
                   onPress={onContinue}
                 >
-                  <Text style={styles.authButtonText}>Continue to Dashboard</Text>
+                  <Text style={styles.authButtonText}>
+                    Continue to Dashboard
+                  </Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity 
@@ -124,7 +160,7 @@ const CardSuccessPage = ({
             {status === 'pending' && (
               <TouchableOpacity 
                 style={[styles.authButton, styles.authButtonDisabled]}
-                disabled={true}
+                disabled
               >
                 <Text style={styles.authButtonText}>Processing...</Text>
               </TouchableOpacity>
@@ -155,6 +191,9 @@ const CardSuccessPage = ({
     </View>
   );
 };
+
+
+
 
 const styles = StyleSheet.create({
   container: {
