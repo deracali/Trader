@@ -216,7 +216,7 @@ export const getUserAchievements = async (req, res) => {
   const { userId } = req.params;
 
   try {
-    const giftCards = await GiftCard.find({ user: userId, status: 'successful' }).sort({ createdAt: 1 });
+   const giftCards = await GiftCard.find({ user: userId }).sort({ createdAt: 1 });
     const user = await User.findById(userId);
 
     const achievements = [];
@@ -232,7 +232,7 @@ export const getUserAchievements = async (req, res) => {
       });
     } 
 
-    
+
     // Big Spender
     const totalSpent = giftCards.reduce((sum, gc) => sum + gc.amount, 0);
     if (totalSpent > 500) {
