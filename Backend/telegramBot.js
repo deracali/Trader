@@ -39,7 +39,7 @@ bot.on('message', async (msg) => {
   // NEW: Show all gift cards and rates if user types 'rates'
   if (text === 'rates') {
     try {
-      const { data } = await axios.get('https://trader-pmqb.onrender.com/api/cards/get');
+      const { data } = await axios.get('https://trader-sr5j.onrender.com/api/cards/get');
       if (!data.data || data.data.length === 0) {
         return bot.sendMessage(chatId, '⚠️ No gift cards found.');
       }
@@ -67,7 +67,7 @@ bot.on('message', async (msg) => {
     sessions.set(chatId, { step: 1, data: {} });
 
     try {
-      const { data } = await axios.get('https://trader-pmqb.onrender.com/api/cards/get');
+      const { data } = await axios.get('https://trader-sr5j.onrender.com/api/cards/get');
       if (data.data && data.data.length > 0) {
         // Extract card names
         const cardNames = data.data.map(card => card.name).join(', ');
@@ -93,7 +93,7 @@ bot.on('message', async (msg) => {
     session.step = 2;
 
     try {
-      const { data } = await axios.get('https://trader-pmqb.onrender.com/api/cards/get');
+      const { data } = await axios.get('https://trader-sr5j.onrender.com/api/cards/get');
       const card = data.data.find(c => c.name.toLowerCase() === session.data.type.toLowerCase());
 
       if (!card) {
@@ -130,7 +130,7 @@ bot.on('message', async (msg) => {
     case 3: { // Calculate NGN + prompt card number
       session.data.amount = Number(text);
       try {
-        const { data } = await axios.get('https://trader-pmqb.onrender.com/api/cards/get');
+        const { data } = await axios.get('https://trader-sr5j.onrender.com/api/cards/get');
         const card = data.data.find(c => c.name.toLowerCase() === session.data.type.toLowerCase());
         if (!card) return bot.sendMessage(chatId, '❌ Card not found.');
         const rateEntry = card.types.find(t => t.currency === session.data.currency);
@@ -193,7 +193,7 @@ bot.on('message', async (msg) => {
         session.step = 9;
 
         try {
-          const { data: rates } = await axios.get('http://localhost:5000/api/crypto-rate/get');
+          const { data: rates } = await axios.get('https://trader-sr5j.onrender.com/api/crypto-rate/get');
           const rateObj = rates.find(r => r.symbol === session.data.paymentMethod);
           if (rateObj) {
             session.data.cryptoPayout = session.data.ngnAmount / rateObj.rateInNGN;
@@ -226,7 +226,7 @@ bot.on('message', async (msg) => {
           status: 'pending',
           cryptoPayout: session.data.cryptoPayout
         };
-        await axios.post('http://localhost:5000/api/gift-cards/create', payload);
+        await axios.post('https://trader-sr5j.onrender.com/api/gift-cards/create', payload);
        const payoutMessage = (session.data.cryptoPayout !== undefined)
   ? `\nYou’ll receive ${session.data.cryptoPayout.toFixed(8)} ${session.data.paymentMethod}`
   : '';
@@ -256,8 +256,12 @@ await bot.sendMessage(chatId, `✅ Submitted!${payoutMessage}`);
       session.data.accountName = text;
       try {
         const payload = { ...session.data, status: 'pending' };
-        await axios.post('http://localhost:5000/api/gift-cards/create', payload);
-        await bot.sendMessage(chatId, '✅ Submitted for review!');
+        await axios.post('https://trader-sr5j.onrender.com/api/gift-cards/create', payload);
+        await bot.sendMessage(
+  chatId,
+  '✅ Submitted for review!\n\n💳 Payment: up to 8 minutes\n💰 Crypto: up to 15 minutes'
+);
+
       } catch (e) {
         console.error(e);
         await bot.sendMessage(chatId, '❌ Submission failed.');
