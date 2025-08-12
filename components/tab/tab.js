@@ -85,11 +85,11 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#64748b',
+    color: 'black',
     textAlign: 'center',
   },
   activeTabText: {
-    color: '#3b82f6',
+    color: 'black',
     fontWeight: '600',
   },
 });

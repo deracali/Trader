@@ -16,8 +16,13 @@ export const getUsers = async (req, res) => {
 
 const JWT_SECRET = process.env.JWT_SECRET || 'yoursecretkey';
 
+// Helper to generate a referral code
+const generateReferralCode = () => Math.random().toString(36).substr(2, 8).toUpperCase();
+
+
+
 export const createUser = async (req, res) => {
-  const { name, email, password, accountNumber, accountName, bankName } = req.body;
+  const { name, email, password, accountNumber, accountName, bankName, referrer } = req.body;
 
   try {
     // Check if email already exists
@@ -27,14 +32,25 @@ export const createUser = async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create new user
+    // Check if the provided referrer exists (by referralCode)
+    let referrerUser = null;
+    if (referrer) {
+      referrerUser = await User.findOne({ referralCode: referrer });
+      if (!referrerUser) {
+        return res.status(400).json({ message: 'Invalid referral code' });
+      }
+    }
+
+    // Create new user with generated referralCode
     const user = new User({
       name,
       email,
       password: hashedPassword,
       accountNumber,
       accountName,
-      bankName
+      bankName,
+      referrer: referrerUser ? referrerUser._id : null,
+      referralCode: generateReferralCode(),
     });
 
     const savedUser = await user.save();
@@ -48,14 +64,21 @@ export const createUser = async (req, res) => {
         name: savedUser.name,
         email: savedUser.email,
         createdAt: savedUser.createdAt,
+        referrer: referrerUser ? {
+          id: referrerUser._id,
+          name: referrerUser.name,
+          email: referrerUser.email,
+        } : null,
+        referralCode: savedUser.referralCode,
       },
       token
     });
   } catch (err) {
-    console.error('Error in createUser:', err); // <--- Console logging the error
+    console.error('Error in createUser:', err);
     res.status(400).json({ message: err.message });
   }
 };
+
 
 
 
@@ -73,18 +96,19 @@ export const loginUser = async (req, res) => {
     // Generate JWT
     const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
 
-    res.status(200).json({
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        accountNumber:user.accountNumber,
-        accountName:user.accountName,
-        bankName:user.bankName,
-        createdAt: user.createdAt
-      },
-      token
-    });
+   res.status(200).json({
+  user: {
+    id: user._id.toString(), // explicitly assign _id as id
+    name: user.name,
+    email: user.email,
+    accountNumber: user.accountNumber,
+    accountName: user.accountName,
+    bankName: user.bankName,
+    createdAt: user.createdAt
+  },
+  token
+});
+
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

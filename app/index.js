@@ -2,17 +2,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  Alert,
-  Dimensions,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    Dimensions,
+    KeyboardAvoidingView,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
@@ -357,11 +357,11 @@ const styles = StyleSheet.create({
     width: width * 0.2,
     height: width * 0.2,
     borderRadius: width * 0.1,
-    backgroundColor: '#6366f1',
+    backgroundColor: 'black',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: height * 0.02,
-    shadowColor: '#6366f1',
+    shadowColor: 'black',
     shadowOffset: {
       width: 0,
       height: 4,
@@ -423,18 +423,18 @@ const styles = StyleSheet.create({
     marginBottom: height * 0.03,
   },
   forgotPasswordText: {
-    color: '#6366f1',
+    color: 'black',
     fontSize: width * 0.035,
     fontWeight: '500',
   },
   authButton: {
-    backgroundColor: '#6366f1',
+    backgroundColor: 'black',
     height: height * 0.06,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: height * 0.03,
-    shadowColor: '#6366f1',
+    shadowColor: 'black',
     shadowOffset: {
       width: 0,
       height: 4,
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
     fontSize: width * 0.04,
   },
   toggleButton: {
-    color: '#6366f1',
+    color: 'black',
     fontSize: width * 0.04,
     fontWeight: '600',
   },

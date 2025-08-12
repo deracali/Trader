@@ -5,8 +5,10 @@ import mongoose from 'mongoose';
 import adminRoute from "./route/adminRouter.js";
 import giftcardRouter from './route/cardRequestRouter.js';
 import cardRoutes from "./route/cardsRouter.js";
+import CryptoRateRouter from "./route/cryptoRateRouter.js";
+import CryptoRouter from "./route/cryptoRouter.js";
 import userRouter from './route/userRouter.js';
-
+import './telegramBot.js';
 
 
 
@@ -31,11 +33,20 @@ app.use('/api/users', userRouter);
 app.use("/api/gift-cards", giftcardRouter);
 app.use('/api/admin', adminRoute);
 app.use('/api/cards', cardRoutes);
+app.use('/api/crypto-rate', CryptoRateRouter);
+app.use('/api/crypto', CryptoRouter);
 
 
 app.get('/', (req, res) => {
   res.send('User API is running...');
 });
+
+
+app.post("/webhook/telegram", (req, res) => {
+  console.log("Received Telegram update:", req.body);
+  res.sendStatus(200); // Respond with 200 to acknowledge
+});
+
 
 // Start server
 const PORT = process.env.PORT || 5000;

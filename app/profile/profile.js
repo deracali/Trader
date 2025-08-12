@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { format } from 'date-fns';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -14,7 +15,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-
+import BottomTab from '../../components/tab/tab';
 
 const { width, height } = Dimensions.get('window');
 
@@ -41,7 +42,7 @@ useEffect(() => {
       const fullName = await AsyncStorage.getItem('fullName');
       const accountNumber = await AsyncStorage.getItem('accountNumber');
       const bankName = await AsyncStorage.getItem('bankName');
-console.log(email)
+// console.log(email)
     
 
       setUserDetails(prev => ({
@@ -52,12 +53,12 @@ console.log(email)
         bankName: bankName || prev.bankName,
       }));
 
-      console.log('✅ Loaded user data:', {
-        fullName,
-        email,
-        accountNumber,
-        bankName
-      });
+      // console.log('✅ Loaded user data:', {
+      //   fullName,
+      //   email,
+      //   accountNumber,
+      //   bankName
+      // });
 
     } catch (err) {
       console.error('❌ Error loading user details from AsyncStorage:', err.message);
@@ -81,7 +82,7 @@ console.log(email)
   //     icon: '🎉',
   //     earned: true,
   //     date: '2024-01-15',
-  //     color: '#6366f1'
+  //     color: 'black'
   //   },
   //   {
   //     id: 2,
@@ -138,17 +139,27 @@ useEffect(() => {
   const fetchAchievements = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
-      if (!userId) return;
+      if (!userId) {
+        console.warn('No userId found in AsyncStorage');
+        return;
+      }
+      console.log(userId)
 
-      const res = await axios.get(`https://trader-pmqb.onrender.com/api/achievements/${userId}`);
+      const res = await axios.get( `https://trader-pmqb.onrender.com/api/gift-cards/achievements/${userId}`, {
+        params: { userId },
+      });
       setAchievements(res.data);
+      console.log(achievements)
     } catch (err) {
-      console.error('Error fetching achievements:', err);
+      console.error('Error fetching achievements:', err.response?.data || err.message);
     }
   };
 
   fetchAchievements();
 }, []);
+
+
+
 
  const [stats, setStats] = useState([
     { label: 'Total Spent', value: '₦0', icon: '💵' },
@@ -161,41 +172,41 @@ useEffect(() => {
 useEffect(() => {
   const fetchStats = async () => {
     try {
-      console.log('📦 Fetching userId from AsyncStorage...');
+      // console.log('📦 Fetching userId from AsyncStorage...');
       const userId = await AsyncStorage.getItem('userId');
-      console.log('🧾 Raw userId from AsyncStorage:', userId);
+      // console.log('🧾 Raw userId from AsyncStorage:', userId);
 
       if (!userId) {
         console.warn('⚠️ No userId found in AsyncStorage.');
         return;
       }
 
-      console.log('📡 Fetching gift cards from server...');
+      // console.log('📡 Fetching gift cards from server...');
       const res = await axios.get('https://trader-pmqb.onrender.com/api/gift-cards/get');
 
-      console.log('✅ Gift cards response:', res.data);
+      // console.log('✅ Gift cards response:', res.data);
       const giftCards = res.data?.data || [];
 
       const userCards = giftCards.filter(
         card => card.user?._id === userId && card.status === 'successful'
       );
-      console.log(`🎯 Filtered userCards (${userCards.length}):`, userCards);
+      // console.log(`🎯 Filtered userCards (${userCards.length}):`, userCards);
 
       const totalSpent = userCards.reduce((sum, card) => sum + card.ngnAmount, 0);
-      console.log('💰 Total spent:', totalSpent);
+      // console.log('💰 Total spent:', totalSpent);
 
       const totalCards = userCards.length;
-      console.log('🧾 Total cards:', totalCards);
+      // console.log('🧾 Total cards:', totalCards);
 
       const dates = userCards.map(card => new Date(card.createdAt));
       const daysActive =
         dates.length > 0
           ? Math.ceil((Math.max(...dates) - Math.min(...dates)) / (1000 * 60 * 60 * 24)) + 1
           : 0;
-      console.log('📅 Days active:', daysActive);
+      // console.log('📅 Days active:', daysActive);
 
       const achievements = Math.min(6, Math.floor(totalCards / 10));
-      console.log('🏆 Achievements:', achievements);
+      // console.log('🏆 Achievements:', achievements);
 
       setStats([
         { label: 'Total Spent', value: `₦${totalSpent.toLocaleString()}`, icon: '💵' },
@@ -241,7 +252,7 @@ const fetchGiftCards = async () => {
     const response = await fetch('https://trader-pmqb.onrender.com/api/gift-cards/get');
     const json = await response.json();
 
-    console.log('📦 Full response from /get:', json);
+    // console.log('📦 Full response from /get:', json);
 
     if (!response.ok) {
       throw new Error(json.message || 'Failed to fetch gift cards');
@@ -263,7 +274,7 @@ const userGiftCards = giftCardsArray
   .filter(card => (card.user?._id === userId) || (card.user === userId))
   .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
   .map(card => ({
-    action: `Purchased ${card.type}`,
+    action: `${card.type}`,
     amount: `$${card.amount}`,
     date: timeAgo(card.createdAt),
     status: card.status || 'pending',
@@ -271,7 +282,7 @@ const userGiftCards = giftCardsArray
   }));
 
 
-    console.log('🎯 Filtered User Gift Cards:', userGiftCards);
+    // console.log('🎯 Filtered User Gift Cards:', userGiftCards);
 
     setRecentActivity(userGiftCards);
   } catch (err) {
@@ -375,6 +386,10 @@ const handleLogout = () => {
       console.error('Failed to fetch user data:', error);
     }
   };
+   const formattedDate = userData
+    ? format(new Date(userData.createdAt), 'MMMM d, yyyy')
+    : '';
+
 
   useEffect(() => {
     fetchUserData();
@@ -479,7 +494,7 @@ const handleOpenEditModal = () => {
   onPress={handleOpenEditModal}
   style={styles.editButton}
 >
-  <Ionicons name="create-outline" size={20} color="#6366f1" />
+  <Ionicons name="create-outline" size={20} color="black" />
 </TouchableOpacity>
 
           </View>
@@ -490,13 +505,13 @@ const handleOpenEditModal = () => {
           <View style={styles.profileHeader}>
             <View style={styles.profileAvatar}>
               <Text style={styles.avatarText}>
-               {userDetails.name ? userDetails.name.split(' ').map(n => n[0]).join('') : ''}
+               {userData.name ? userData.name.split(' ').map(n => n[0]).join('') : ''}
               </Text>
             </View>
             <View style={styles.profileDetails}>
-              <Text style={styles.profileName}>{userDetails.name}</Text>
-              <Text style={styles.profileStatus}>{userDetails.status}</Text>
-              <Text style={styles.profileMember}>Member since {userDetails.createdAt}</Text>
+              <Text style={styles.profileName}>{userData.name}</Text>
+              <Text style={styles.profileStatus}>{userData.status}</Text>
+              <Text style={styles.profileMember}>Member since {formattedDate}</Text>
             </View>
           </View>
           
@@ -506,7 +521,7 @@ const handleOpenEditModal = () => {
             
             <View style={styles.detailRow}>
               <View style={styles.detailIconContainer}>
-                <Ionicons name="mail-outline" size={16} color="#6366f1" />
+                <Ionicons name="mail-outline" size={16} color="black" />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Email</Text>
@@ -516,7 +531,7 @@ const handleOpenEditModal = () => {
 
             <View style={styles.detailRow}>
               <View style={styles.detailIconContainer}>
-                <Ionicons name="card-outline" size={16} color="#6366f1" />
+                <Ionicons name="card-outline" size={16} color="black" />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Account Number</Text>
@@ -526,7 +541,7 @@ const handleOpenEditModal = () => {
 
             <View style={styles.detailRow}>
               <View style={styles.detailIconContainer}>
-                <Ionicons name="business-outline" size={16} color="#6366f1" />
+                <Ionicons name="business-outline" size={16} color="black" />
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>Bank Name</Text>
@@ -543,7 +558,7 @@ const handleOpenEditModal = () => {
         </View>
         <View style={{ alignItems: 'flex-end' }}>
           <Text style={styles.levelText}>Next Level</Text>
-          <Text style={[styles.levelValue, { color: '#8b5cf6' }]}>
+          <Text style={[styles.levelValue, { color: 'black' }]}>
             {userData.nextLevel
               ? `${userData.nextLevel} (${userData.progressPercent}%)`
               : 'Max Level'}
@@ -638,30 +653,31 @@ const handleOpenEditModal = () => {
                       )}
                     </View>
                     
-                    {achievement.earned ? (
-                      <Text style={styles.achievementDate}>
-                        Earned on {new Date(achievement.date).toLocaleDateString()}
-                      </Text>
-                    ) : (
-                      <View style={styles.progressContainer}>
-                        <View style={styles.progressHeader}>
-                          <Text style={styles.progressText}>Progress</Text>
-                          <Text style={styles.progressText}>
-                            {achievement.progress}/{achievement.total}
-                          </Text>
-                        </View>
-                        <View style={styles.progressBarContainer}>
-                          <View
-                            style={{
-                              height: '100%',
-                              backgroundColor: achievement.color,
-                              width: `${(achievement.progress / achievement.total) * 100}%`,
-                              borderRadius: height * 0.004,
-                            }}
-                          />
-                        </View>
-                      </View>
-                    )}
+                   {achievement.earned && achievement.date ? (
+  <Text style={styles.achievementDate}>
+    Earned on {new Date(achievement.date).toLocaleDateString()}
+  </Text>
+) : !achievement.earned && (
+  <View style={styles.progressContainer}>
+    <View style={styles.progressHeader}>
+      <Text style={styles.progressText}>Progress</Text>
+      <Text style={styles.progressText}>
+        {achievement.progress}/{achievement.total}
+      </Text>
+    </View>
+    <View style={styles.progressBarContainer}>
+      <View
+        style={{
+          height: '100%',
+          backgroundColor: achievement.color,
+          width: `${(achievement.progress / achievement.total) * 100}%`,
+          borderRadius: height * 0.004,
+        }}
+      />
+    </View>
+  </View>
+)}
+
                   </View>
                 </View>
               </View>
@@ -716,6 +732,7 @@ const handleOpenEditModal = () => {
       </ScrollView>
       
       {renderEditModal()}
+      <BottomTab />
     </SafeAreaView>
   );
 };
@@ -778,7 +795,7 @@ const styles = {
     width: width * 0.16,
     height: width * 0.16,
     borderRadius: width * 0.08,
-    backgroundColor: '#6366f1',
+    backgroundColor: 'black',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: width * 0.04,
@@ -802,7 +819,7 @@ const styles = {
   },
   profileMember: {
     fontSize: width * 0.03,
-    color: '#6366f1',
+    color: 'black',
     fontWeight: '600',
   },
   userDetailsSection: {
@@ -857,7 +874,7 @@ const styles = {
   levelValue: {
     fontSize: width * 0.035,
     fontWeight: 'bold',
-    color: '#6366f1',
+    color: 'black',
   },
   progressBar: {
     backgroundColor: '#e5e7eb',
@@ -867,7 +884,7 @@ const styles = {
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#6366f1',
+    backgroundColor: 'black',
     width: '87%',
     borderRadius: height * 0.004,
   },
@@ -897,7 +914,7 @@ const styles = {
   statNumber: {
     fontSize: width * 0.045,
     fontWeight: 'bold',
-    color: '#6366f1',
+    color: 'black',
     marginBottom: height * 0.005,
   },
   statLabel: {
@@ -928,8 +945,8 @@ const styles = {
     borderLeftWidth: 0,
   },
   tabButtonActive: {
-    backgroundColor: '#6366f1',
-    borderColor: '#6366f1',
+    backgroundColor: 'black',
+    borderColor: 'black',
   },
   tabText: {
     fontSize: width * 0.035,
@@ -1082,7 +1099,7 @@ const styles = {
   activityAmount: {
     fontSize: width * 0.035,
     fontWeight: 'bold',
-    color: '#6366f1',
+    color: 'black',
   },
   bottomSpacing: {
     height: height * 0.05,
@@ -1139,7 +1156,7 @@ const styles = {
   },
   modalSaveText: {
     fontSize: width * 0.04,
-    color: '#6366f1',
+    color: 'black',
     fontWeight: '600',
   },
   modalContent: {

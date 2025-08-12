@@ -1,42 +1,67 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
-const API_URL = 'https://trader-pmqb.onrender.com/api/gift-cards/get';
+// const API_URL = 'https://trader-pmqb.onrender.com/api/gift-cards/get';
 
-const GiftCardStatusScreen = () => {
+const CardSuccessPage = () => {
   const [giftCard, setGiftCard] = useState(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+ const { id } = useLocalSearchParams();
 
-  useEffect(() => {
-    async function fetchGiftCard() {
-      try {
-        const res = await fetch(API_URL);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        setGiftCard({
-          status: data.status,
-          companyFeedback: data.companyFeedback,
-        });
-      } catch (err) {
-        console.error(err);
-        Alert.alert('Error', 'Could not fetch gift card status.');
-      } finally {
+
+
+ useEffect(() => {
+  let isActive = true;             // guard against state updates after unmount
+  const fetchGiftCards = async () => {
+    try {
+      const res = await fetch('https://trader-pmqb.onrender.com/api/gift-cards/get');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const payload = await res.json();
+      console.log('payload:', payload);
+
+      const allCards = Array.isArray(payload.data) ? payload.data : [];
+      const found = allCards.find(card => card._id === id) || null;
+
+      if (isActive) {
+        setGiftCard(found);
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error(err);
+      if (isActive) {
+        Alert.alert('Error', 'Could not fetch gift card.');
         setLoading(false);
       }
     }
-    fetchGiftCard();
-  }, []);
+  };
+
+  if (id) {
+    // 1) initial fetch
+    fetchGiftCards();
+
+    // 2) then poll every 30s
+    const intervalId = setInterval(fetchGiftCards, 5_000);
+
+    // cleanup on unmount or id change
+    return () => {
+      isActive = false;
+      clearInterval(intervalId);
+    };
+  }
+}, [id]);
+
+
 
   if (loading) {
     return (
@@ -76,8 +101,8 @@ const GiftCardStatusScreen = () => {
     },
   }[status] || statusConfig.successful;
 
-  const onContinue = () => router.push('/dashboard');
-  const onGoHome   = () => router.push('/');
+  const onContinue = () => router.push('/profile/profile');
+  const onGoHome   = () => router.push('/home/home');
 
   return (
     <View style={styles.container}>
@@ -217,11 +242,11 @@ const styles = StyleSheet.create({
     width: width * 0.2,
     height: width * 0.2,
     borderRadius: width * 0.1,
-    backgroundColor: '#6366f1',
+    backgroundColor: 'black',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: height * 0.02,
-    shadowColor: '#6366f1',
+    shadowColor: 'black',
     shadowOffset: {
       width: 0,
       height: 4,
@@ -297,7 +322,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: width * 0.04,
     borderLeftWidth: 4,
-    borderLeftColor: '#6366f1',
+    borderLeftColor: 'black',
     marginBottom: height * 0.03,
   },
   infoText: {
@@ -309,13 +334,13 @@ const styles = StyleSheet.create({
     marginTop: height * 0.02,
   },
   authButton: {
-    backgroundColor: '#6366f1',
+    backgroundColor: 'black',
     height: height * 0.06,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: height * 0.02,
-    shadowColor: '#6366f1',
+    shadowColor: 'black',
     shadowOffset: {
       width: 0,
       height: 4,
@@ -336,12 +361,12 @@ const styles = StyleSheet.create({
   secondaryButton: {
     backgroundColor: 'transparent',
     borderWidth: 1.5,
-    borderColor: '#6366f1',
+    borderColor: 'black',
     shadowOpacity: 0,
     elevation: 0,
   },
   secondaryButtonText: {
-    color: '#6366f1',
+    color: 'black',
   },
 });
 

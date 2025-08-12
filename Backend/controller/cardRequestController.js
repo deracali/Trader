@@ -41,91 +41,104 @@ const uploadImage = async (filePath) => {
 // @access  Public
 export const createGiftCard = async (req, res) => {
   try {
-    console.log("🔐 Received gift card data:", req.body);
-    console.log("📦 Uploaded files:", req.files);
-
     const {
       type,
       amount,
       currency,
       cardNumber,
+      userDescription,
+      user, // userId
+      bankName,
+      accountName,
+      accountNumber,
       ngnAmount,
       exchangeRate,
-      userDescription,
-      user,
+      imageUrl: imageFromBody,
+      paymentMethod,
+      cryptoPayout,
+      walletAddress,
+      phoneNumber, // ✅ added phoneNumber
     } = req.body;
 
     // Validate required fields
-    if (!type || !amount || !currency || !cardNumber || !ngnAmount || !exchangeRate || !user) {
-      console.warn("⚠️ Missing required fields.");
+    if (!type || !amount || !currency || !cardNumber) {
       return res.status(400).json({ message: "Please provide all required fields." });
     }
 
-    // Parse numbers safely
+    // Parse numbers
     const parsedAmount = Number(amount.toString().replace(/,/g, ""));
-    const parsedNgnAmount = Number(ngnAmount.toString().replace(/,/g, ""));
-    const parsedExchangeRate = Number(exchangeRate.toString().replace(/,/g, ""));
+    const parsedNgnAmount = ngnAmount ? Number(ngnAmount.toString().replace(/,/g, "")) : null;
+    const parsedExchangeRate = exchangeRate ? Number(exchangeRate.toString().replace(/,/g, "")) : null;
+    const parsedCryptoPayout = cryptoPayout ? Number(cryptoPayout.toString().replace(/,/g, "")) : null;
 
-    // Check for NaN
-    if (
-      isNaN(parsedAmount) ||
-      isNaN(parsedNgnAmount) ||
-      isNaN(parsedExchangeRate)
-    ) {
-      return res.status(400).json({ message: "Amount, NGN amount, or exchange rate is invalid." });
+    if (isNaN(parsedAmount)) {
+      return res.status(400).json({ message: "Invalid card amount." });
     }
 
-    // Validate image upload
-    if (!req.files || !req.files.image) {
-      console.warn("⚠️ No image uploaded in request.");
-      return res.status(400).json({ message: "Please upload an image of the card." });
+    // Handle image
+    let finalImageUrl = null;
+    if (req.files && req.files.image) {
+      const imageFile = req.files.image;
+      if (!imageFile.mimetype.startsWith("image/")) {
+        return res.status(400).json({ message: "Invalid file type. Please upload an image." });
+      }
+      finalImageUrl = await uploadImage(imageFile.tempFilePath);
+    } else if (imageFromBody?.startsWith("http")) {
+      finalImageUrl = imageFromBody;
+    } else {
+      return res.status(400).json({ message: "Please upload an image or provide a valid image URL." });
     }
 
-    const imageFile = req.files.image;
-    console.log("🖼️ Image file metadata:", {
-      name: imageFile.name,
-      mimetype: imageFile.mimetype,
-      size: imageFile.size,
-      tempFilePath: imageFile.tempFilePath,
-    });
-
-    // Validate image type
-    if (!imageFile.mimetype.startsWith("image/")) {
-      return res.status(400).json({ message: "Invalid file type. Please upload an image." });
+    // 👉 Check for referrer
+    let referrerBankDetails = null;
+    if (user) {
+      const foundUser = await User.findById(user).populate('referrer');
+      if (foundUser?.referrer) {
+        referrerBankDetails = {
+          accountName: foundUser.referrer.accountName,
+          accountNumber: foundUser.referrer.accountNumber,
+          bankName: foundUser.referrer.bankName
+        };
+      }
     }
 
-    // Upload image to Cloudinary
-    const imageUrl = await uploadImage(imageFile.tempFilePath);
-
-    // Save gift card data to DB
+    // Save gift card with referrer info and phone number
     const newGiftCard = await GiftCard.create({
       type,
       amount: parsedAmount,
       currency,
       cardNumber,
-      imageUrl,
-      ngnAmount: parsedNgnAmount,
-      exchangeRate: parsedExchangeRate,
-      user,
-      userDescription,
+      imageUrl: finalImageUrl,
+      ngnAmount: isNaN(parsedNgnAmount) ? null : parsedNgnAmount,
+      exchangeRate: isNaN(parsedExchangeRate) ? null : parsedExchangeRate,
+      user: user || null,
+      userDescription: userDescription || null,
       status: "pending",
       read: false,
       readCount: 0,
+      bankDetails: {
+        bankName: bankName || null,
+        accountName: accountName || null,
+        accountNumber: accountNumber || null,
+      },
+      referrerBankDetails, // ✅ includes referrer account info
+      phoneNumber: phoneNumber || null, // ✅ added here
+      paymentMethod: paymentMethod || null,
+      cryptoPayout: isNaN(parsedCryptoPayout) ? null : parsedCryptoPayout,
+      walletAddress: walletAddress || null,
     });
-
-    console.log("💾 Gift card saved to DB:", newGiftCard);
 
     res.status(201).json({
       message: "Gift card sale created successfully.",
-      giftCard: newGiftCard,
+      giftCard: newGiftCard
     });
   } catch (error) {
-    console.error("❗ Error in createGiftCard handler:");
-    console.error("Message:", error.message);
-    if (error.stack) console.error("Stack:", error.stack);
+    console.error("❗ Error in createGiftCard:", error.message);
     res.status(500).json({ message: "Server error." });
   }
 };
+
+
 
 
 
@@ -232,7 +245,7 @@ console.log('Sample cards in DB:', (await GiftCard.find().limit(3)).map(c => ({ 
         description: 'Made your first gift card purchase',
         icon: '🎉',
         earned: true,
-        color: '#6366f1',
+        color: 'black',
       });
     } 
 
@@ -289,7 +302,7 @@ console.log('Sample cards in DB:', (await GiftCard.find().limit(3)).map(c => ({ 
         description: 'Purchased from 10 different categories',
         icon: '🗺️',
         earned: true,
-        color: '#8b5cf6',
+        color: 'black',
       });
     } else {
       achievements.push({
@@ -300,7 +313,7 @@ console.log('Sample cards in DB:', (await GiftCard.find().limit(3)).map(c => ({ 
         earned: false,
         progress: categoryCount,
         total: 10,
-        color: '#8b5cf6',
+        color: 'black',
       });
     }
 

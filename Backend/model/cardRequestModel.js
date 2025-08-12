@@ -26,16 +26,18 @@ const giftCardSchema = new mongoose.Schema({
   },
   ngnAmount: {
     type: Number,
-    required: true,
   },
   exchangeRate: {
     type: Number,
-    required: true,
   },
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+  },
+  referrer: {                                  // <-- Add this field
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null,
   },
   status: {
     type: String,
@@ -52,12 +54,36 @@ const giftCardSchema = new mongoose.Schema({
   },
   read: {
     type: Boolean,
-    default: false,  // false means not read yet
+    default: false,
   },
   readCount: {
     type: Number,
     default: 0,
     min: 0,
+  },
+  bankDetails: {
+    bankName: { type: String, trim: true },
+    accountName: { type: String, trim: true },
+    accountNumber: { type: String, trim: true }
+  },
+  referrerBankDetails: {
+    bankName: { type: String, trim: true },
+    accountName: { type: String, trim: true },
+    accountNumber: { type: String, trim: true }
+  },
+  phoneNumber: {
+    type: String,
+    trim: true,
+  },
+  paymentMethod: {
+    type: String,
+  },
+  cryptoPayout: {
+    type: Number,
+  },
+  walletAddress: {
+    type: String,
+    trim: true,
   },
   createdAt: {
     type: Date,

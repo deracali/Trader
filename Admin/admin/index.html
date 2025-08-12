@@ -22,6 +22,8 @@
           <span id="notif-count" class="hidden absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>
         </div> -->
         <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold"><a href="form.html">C</a></div>
+        <div class=""><a href="allcards.html">Requests</a></div>
+        <div class=""><a href="crypto.html">Crypto</a></div>
       </div>
     </div>
   </header>
@@ -114,7 +116,7 @@ loadUsers()
 
 
 
-const API_BASE = 'https://trader-pmqb.onrender.com/api/gift-cards';
+const API_BASE = 'http://localhost:5000/api/gift-cards';
 
 // ====== In-Memory Store ======
 let giftCards = [];
@@ -124,34 +126,48 @@ async function loadGiftCards() {
   try {
     const res = await fetch(`${API_BASE}/get`);
     if (!res.ok) throw new Error(`Server returned ${res.status}`);
+
     const payload = await res.json();
+    const arr = Array.isArray(payload.data) ? payload.data : [];
 
-    const arr = Array.isArray(payload)
-      ? payload
-      : Array.isArray(payload.data)
-        ? payload.data
-        : Array.isArray(payload.giftCards)
-          ? payload.giftCards
-          : null;
-    if (!arr) throw new Error('Cannot find array in response payload');
+    console.log("All cards from server:", arr);
 
-    giftCards = arr.map(gc => ({
-      id:               gc._id,
-      type:             gc.type,
-      amount:           gc.amount,
-      currency:         gc.currency,
-      cardNumber:       gc.cardNumber,
-      imageUrl:         gc.imageUrl,
-      ngnAmount:        gc.ngnAmount,
-      exchangeRate:     gc.exchangeRate,
-      user:             (typeof gc.user === 'object' ? gc.user.name : gc.user),
-      status:           gc.status,
-      userDescription:  gc.userDescription || '',
-      companyFeedback:  gc.companyFeedback || '',
-      read:             gc.read,
-      readCount:        gc.readCount,
-      createdAt:        new Date(gc.createdAt).toLocaleDateString()
-    }));
+  giftCards = arr.map(gc => {
+  const bank = gc.bankDetails || {};
+  const referrerBank = gc.referrerBankDetails || {};
+
+  return {
+    id: gc._id,
+    type: gc.type,
+    amount: gc.amount,
+    currency: gc.currency,
+    cardNumber: gc.cardNumber,
+    imageUrl: gc.imageUrl,
+    ngnAmount: gc.ngnAmount,
+    exchangeRate: gc.exchangeRate,
+    paymentMethod: gc.paymentMethod || '',               // ✅ add this
+    cryptoPayout: gc.cryptoPayout || '',                 // ✅ add this
+    walletAddress: gc.walletAddress || '',               // ✅ add this
+    user: typeof gc.user === 'object' ? gc.user?.name || '' : gc.user || '',
+    status: (gc.status || '').toLowerCase().trim(),
+    userDescription: gc.userDescription || '',
+    companyFeedback: gc.companyFeedback || '',
+    read: gc.read,
+    readCount: gc.readCount,
+     phoneNumber: gc.phoneNumber || '',
+    createdAt: new Date(gc.createdAt).toLocaleDateString(),
+    bankDetails: {
+      bankName: bank.bankName || '',
+      accountName: bank.accountName || '',
+      accountNumber: bank.accountNumber || ''
+    },
+    referrerBankDetails: {   // Use referrerBank here
+      bankName: referrerBank.bankName || '',
+      accountName: referrerBank.accountName || '',
+      accountNumber: referrerBank.accountNumber || ''
+    }
+  };
+});
 
     renderCards();
   } catch (err) {
@@ -245,83 +261,129 @@ function renderCards() {
 
   tabContent.innerHTML = `
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      ${pending.map(c => `
-        <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg border-l-4 ${getStatusBorderColor(c.status)}">
-          
-          <div class="flex justify-between mb-4">
-            <h3 class="text-lg font-semibold text-gray-900">${c.type} Gift Card</h3>
-            <span class="px-3 py-1 text-sm rounded-full ${getStatusColor(c.status)}">
-              ${c.status.toUpperCase()}
-            </span>
-          </div>
+      ${pending.map(c => {
+        // Determine user display name fallback to bankDetails.accountName if user is null
+       const userName = c.user || c.bankDetails?.accountName || '—';
 
-          <div class="grid grid-cols-2 gap-4 mb-4 text-sm">
-            <div><span class="text-gray-600">Amount:</span> <span class="font-medium text-green-600">$${c.amount} ${c.currency}</span></div>
-            <div><span class="text-gray-600">NGN Amount:</span> <span class="font-medium">₦${c.ngnAmount.toLocaleString()}</span></div>
-            <div><span class="text-gray-600">Card #:</span> <span class="font-medium">${c.cardNumber}</span></div>
-            <div><span class="text-gray-600">Rate:</span> <span class="font-medium">₦${c.exchangeRate}</span></div>
-            <div><span class="text-gray-600">User:</span> <span class="font-medium">${c.user}</span></div>
-            <div><span class="text-gray-600">Created:</span> <span class="font-medium">${c.createdAt}</span></div>
-          </div>
 
-          ${c.userDescription ? `
-            <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700">User Desc:</label>
-              <p class="text-sm text-gray-600 bg-gray-50 p-2 rounded">${c.userDescription}</p>
-            </div>
-          ` : ''}
-
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700">Admin Feedback:</label>
-            <textarea
-              id="feedback-${c.id}"
-              class="w-full p-3 border border-gray-300 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              rows="3"
-            >${c.companyFeedback}</textarea>
-            <button
-              onclick="updateCompanyFeedback('${c.id}', document.getElementById('feedback-${c.id}').value)"
-              class="mt-2 px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition"
-            >Update Feedback</button>
+        // Prepare bank details display if available
+        const bankDetailsHTML = c.bankDetails ? `
+          <div class="mb-4 p-3 border rounded bg-gray-50 text-sm text-gray-700">
+            <strong>Bank Details:</strong><br />
+            Bank Name: ${c.bankDetails.bankName ?? '—'}<br />
+            Account Name: ${c.bankDetails.accountName ?? '—'}<br />
+            Account Number: ${c.bankDetails.accountNumber ?? '—'}
           </div>
+        ` : '';
 
-          <div class="flex items-center mb-4">
-            <img
-              src="${c.imageUrl}"
-              alt="${c.type} Gift Card"
-              class="w-16 h-16 object-contain rounded mr-4 border"
-            />
-            <button
-              onclick="copyImageToClipboard('${c.imageUrl}')"
-              class="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
-              title="Copy image"
-            >
-              <i data-lucide="copy" class="w-5 h-5"></i>
-            </button>
-          </div>
 
-          <div class="flex justify-between items-center pt-4 border-t">
-            <div class="flex space-x-2">
-              <button
-                onclick="updateCardStatus('${c.id}', 'successful')"
-                class="px-4 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition flex items-center"
-                ${c.status==='successful'?'disabled':''}
-              >
-                <i data-lucide="check" class="w-4 h-4 mr-1"></i>Success
-              </button>
-              <button
-                onclick="updateCardStatus('${c.id}', 'failed')"
-                class="px-4 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition flex items-center"
-                ${c.status==='failed'?'disabled':''}
-              >
-                <i data-lucide="x" class="w-4 h-4 mr-1"></i>Failed
-              </button>
-            </div>
-            <div class="text-xs text-gray-500">
-              ${c.read?`Read ${c.readCount}×`:'Unread'}
-            </div>
-          </div>
+          const referrerBank = c.referrerBankDetails || {};
+      const referrerBankDetailsHTML = c.referrerBankDetails ? `
+        <div class="mb-4 p-3 border rounded bg-gray-50 text-sm text-gray-700">
+          <strong>Referrer Bank Details:</strong><br />
+          Bank Name: ${referrerBank.bankName ?? '—'}<br />
+          Account Name: ${referrerBank.accountName ?? '—'}<br />
+          Account Number: ${referrerBank.accountNumber ?? '—'}
         </div>
-      `).join('')}
+      ` : '';
+
+
+      const referrerAmount = (typeof c.ngnAmount === 'number') ? (c.ngnAmount * 0.03) : 0;
+const referrerAmountHTML = `
+  <div class="mb-4 text-sm text-gray-700">
+    <strong>Referrer Amount (5% NGN):</strong> ₦${referrerAmount.toLocaleString()}
+  </div>
+`;
+
+        return `
+          <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg border-l-4 ${getStatusBorderColor(c.status)}">
+            
+            <div class="flex justify-between mb-4">
+              <h3 class="text-lg font-semibold text-gray-900">${c.type} Gift Card</h3>
+              <span class="px-3 py-1 text-sm rounded-full ${getStatusColor(c.status)}">
+                ${c.status.toUpperCase()}
+              </span>
+            </div>
+
+           <div class="grid grid-cols-2 gap-4 mb-4 text-sm">
+  <div><span class="text-gray-600">Amount:</span> <span class="font-medium text-green-600">$${c.amount ?? '0'} ${c.currency ?? ''}</span></div>
+  <div><span class="text-gray-600">NGN Amount:</span> <span class="font-medium">₦${(typeof c.ngnAmount === 'number' ? c.ngnAmount.toLocaleString() : '0')}</span></div>
+  <div><span class="text-gray-600">Card #:</span> <span class="font-medium">${c.cardNumber ?? '—'}</span></div>
+  <div><span class="text-gray-600">Rate:</span> <span class="font-medium">₦${(typeof c.exchangeRate === 'number' ? c.exchangeRate.toLocaleString() : c.exchangeRate ?? '—')}</span></div>
+  <div><span class="text-gray-600">User:</span> <span class="font-medium">${userName}</span></div>
+  <div><span class="text-gray-600">Created:</span> <span class="font-medium">${c.createdAt ?? '—'}</span></div>
+   <div><span class="text-gray-600">Phone Number:</span> <span class="font-medium">${c.phoneNumber || '—'}</span></div>
+ <div><span class="text-gray-600">Payment Method:</span> <span class="font-medium">${c.paymentMethod ?? '—'}</span></div>
+<div><span class="text-gray-600">Crypto Payout:</span> <span class="font-medium">${c.cryptoPayout ?? '—'}</span></div>
+<div><span class="text-gray-600">Wallet Address:</span> <span class="font-medium break-all">${c.walletAddress ?? '—'}</span></div>
+
+</div>
+
+
+            ${bankDetailsHTML}
+${referrerBankDetailsHTML}
+${referrerAmountHTML}
+
+
+            ${c.userDescription ? `
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700">User Desc:</label>
+                <p class="text-sm text-gray-600 bg-gray-50 p-2 rounded">${c.userDescription}</p>
+              </div>
+            ` : ''}
+
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700">Admin Feedback:</label>
+              <textarea
+                id="feedback-${c.id}"
+                class="w-full p-3 border border-gray-300 rounded-md resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows="3"
+              >${c.companyFeedback ?? ''}</textarea>
+              <button
+                onclick="updateCompanyFeedback('${c.id}', document.getElementById('feedback-${c.id}').value)"
+                class="mt-2 px-4 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition"
+              >Update Feedback</button>
+            </div>
+
+            <div class="flex items-center mb-4">
+              <img
+                src="${c.imageUrl ?? ''}"
+                alt="${c.type} Gift Card"
+                class="w-16 h-16 object-contain rounded mr-4 border"
+              />
+              <button
+                onclick="copyImageToClipboard('${c.imageUrl ?? ''}')"
+                class="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+                title="Copy image"
+              >
+                <i data-lucide="copy" class="w-5 h-5"></i>
+              </button>
+            </div>
+
+            <div class="flex justify-between items-center pt-4 border-t">
+              <div class="flex space-x-2">
+                <button
+                  onclick="updateCardStatus('${c.id}', 'successful')"
+                  class="px-4 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition flex items-center"
+                  ${c.status==='successful'?'disabled':''}
+                >
+                  <i data-lucide="check" class="w-4 h-4 mr-1"></i>Success
+                </button>
+                <button
+                  onclick="updateCardStatus('${c.id}', 'failed')"
+                  class="px-4 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600 transition flex items-center"
+                  ${c.status==='failed'?'disabled':''}
+                >
+                  <i data-lucide="x" class="w-4 h-4 mr-1"></i>Failed
+                </button>
+              </div>
+              <div class="text-xs text-gray-500">
+                ${c.read?`Read ${c.readCount}×`:'Unread'}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('')}
     </div>
   `;
   lucide.createIcons();
@@ -356,40 +418,51 @@ loadGiftCards();
     //   }
     // }
 
-    function renderOverview() {
-      const totalUsers = users.length;
-      const totalCards = giftCards.length;
-      const totalRevenue = giftCards.filter(c => c.status === 'successful').reduce((sum, c) => sum + c.ngnAmount, 0);
-      const pendingCards = giftCards.filter(c => c.status === 'pending').length;
-      const latest = giftCards.slice(0, 3);
-      
-      tabContent.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          ${statCard('users','Total Users', totalUsers,'+12% this month','#3B82F6')}
-          ${statCard('credit-card','Gift Cards', totalCards,'+8% this week','#10B981')}
-          ${statCard('dollar-sign','Total Revenue','₦'+totalRevenue.toLocaleString(),'+15% this month','#F59E0B')}
-          ${statCard('clock','Pending Cards', pendingCards,'Awaiting review','#EF4444')}
-        </div>
-        <div class="bg-white rounded-lg shadow-md p-6">
-          <h2 class="text-lg font-semibold text-gray-900 mb-4">Latest Gift Cards</h2>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            ${latest.map(card=>`
-              <div class="border rounded-lg p-4 hover:shadow-md">
-                <div class="flex justify-between mb-2">
-                  <h3 class="font-semibold text-gray-900">${card.type}</h3>
-                  <span class="px-2 py-1 text-xs rounded-full ${getStatusColor(card.status)}">${card.status}</span>
-                </div>
-                <p class="text-sm text-gray-600 mb-2">User: ${card.user}</p>
-                <div class="flex justify-between items-center mb-2">
-                  <span class="text-lg font-bold text-green-600">$${card.amount}</span>
-                  <span class="text-sm text-gray-500">₦${card.ngnAmount.toLocaleString()}</span>
-                </div>
-                <p class="text-xs text-gray-500">${card.createdAt}</p>
-              </div>`).join('')}
-          </div>
-        </div>`;
-      lucide.createIcons();
-    }
+function renderOverview() {
+  const totalUsers = users.length;
+  const totalCards = giftCards.length;
+
+  // Filter successful cards and only include those with valid ngnAmount numbers
+  const totalRevenue = giftCards
+    .filter(c => c.status?.toLowerCase().trim() === 'successful' && typeof c.ngnAmount === 'number')
+    .reduce((sum, c) => sum + c.ngnAmount, 0);
+
+  const pendingCards = giftCards.filter(c => c.status?.toLowerCase().trim() === 'pending').length;
+  const latest = giftCards.slice(0, 3);
+
+  tabContent.innerHTML = `
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      ${statCard('users','Total Users', totalUsers,'+12% this month','#3B82F6')}
+      ${statCard('credit-card','Gift Cards', totalCards,'+8% this week','#10B981')}
+      ${statCard('dollar-sign','Total Revenue','₦' + (totalRevenue ? totalRevenue.toLocaleString() : '0'),'+15% this month','#F59E0B')}
+      ${statCard('clock','Pending Cards', pendingCards,'Awaiting review','#EF4444')}
+    </div>
+    <div class="bg-white rounded-lg shadow-md p-6">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">Latest Gift Cards</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        ${latest.map(card => {
+          // Use card.user if truthy, otherwise fallback to bankDetails.accountName or '—'
+          const userName = card.user || (card.bankDetails?.accountName) || '—';
+          return `
+            <div class="border rounded-lg p-4 hover:shadow-md">
+              <div class="flex justify-between mb-2">
+                <h3 class="font-semibold text-gray-900">${card.type}</h3>
+                <span class="px-2 py-1 text-xs rounded-full ${getStatusColor(card.status)}">${card.status}</span>
+              </div>
+              <p class="text-sm text-gray-600 mb-2">User: ${userName}</p>
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-lg font-bold text-green-600">$${card.amount ?? '0'}</span>
+                <span class="text-sm text-gray-500">₦${(typeof card.ngnAmount === 'number' ? card.ngnAmount.toLocaleString() : '0')}</span>
+              </div>
+              <p class="text-xs text-gray-500">${card.createdAt}</p>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>`;
+
+  lucide.createIcons();
+}
 
     // function renderUsers() {
     //   tabContent.innerHTML = `

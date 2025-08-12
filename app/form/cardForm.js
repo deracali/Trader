@@ -263,7 +263,10 @@ const [userDescription, setUserDescription] = useState('');
     return Object.keys(errs).length === 0;
   };
 
-const handlePurchase = async () => {
+
+
+// Alternative version without Alert (if you prefer immediate navigation)
+const handlePurchase  = async () => {
   if (!validateForm()) return;
 
   setIsLoading(true);
@@ -286,7 +289,6 @@ const handlePurchase = async () => {
     formData.append('user', storedUserId);
     formData.append('userDescription', userDescription);
 
-
     // Append image file
     if (cardImage && cardImage.uri) {
       const fileUri = cardImage.uri;
@@ -302,6 +304,7 @@ const handlePurchase = async () => {
       throw new Error('Image is required.');
     }
 
+    // Send to server
     const response = await axios.post(
       'https://trader-pmqb.onrender.com/api/gift-cards/create',
       formData,
@@ -312,29 +315,51 @@ const handlePurchase = async () => {
       }
     );
 
-    Alert.alert(
-      'Purchase Successful!',
-      `You will receive ₦${ngnAmount} for your ${getCurrentCurrency()} ${cardAmount} ${selectedCard} card.`,
-      [{
-        text: 'OK',
-        onPress: () => {
-          // Reset form
-          setCardAmount('');
-          setCardNumber('');
-          setCardImage(null);
-          setNgnAmount('0');
-          setErrors({});
-          if (availableCardTypes.length > 0) {
-            const firstCard = availableCardTypes[0];
-            setSelectedCard(firstCard);
-            setCurrentCurrency(cardCurrencies[firstCard] || 'USD');
-          }
-        },
-      }]
-    );
+    const createdCardId = response?.data?.giftCard?._id;
+
+    
+    if (!createdCardId) {
+      console.error('No card ID found in response:', response.data);
+      throw new Error('Card created but ID not found in response');
+    }
+
+    // Reset form
+    setCardAmount('');
+    setCardNumber('');
+    setCardImage(null);
+    setNgnAmount('0');
+    setErrors({});
+
+    if (availableCardTypes.length > 0) {
+      const firstCard = availableCardTypes[0];
+      setSelectedCard(firstCard);
+      setCurrentCurrency(cardCurrencies[firstCard] || 'USD');
+    }
+
+    // Navigate directly to success screen
+    router.push({
+      pathname: '/success/successScreen',
+      params: { 
+        id: createdCardId,
+        amount: ngnAmount,
+        cardType: selectedCard,
+        cardAmount: cardAmount,
+        currency: getCurrentCurrency()
+      },
+    });
+
   } catch (error) {
     console.error('Gift card purchase error:', error.response?.data || error.message);
-    Alert.alert('Error', error.message || 'Failed to process purchase. Please try again.');
+    
+    let errorMessage = 'Failed to process purchase. Please try again.';
+    
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    Alert.alert('Error', errorMessage);
   } finally {
     setIsLoading(false);
   }
@@ -563,11 +588,11 @@ const styles = StyleSheet.create({
         width: width * 0.2,
         height: width * 0.2,
         borderRadius: width * 0.1,
-        backgroundColor: '#6366f1',
+        backgroundColor: 'black',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: height * 0.02,
-        shadowColor: '#6366f1',
+        shadowColor: 'black',
         shadowOffset: {
             width: 0,
             height: 4,
@@ -649,7 +674,7 @@ const styles = StyleSheet.create({
         minWidth: width * 0.25,
     },
     cardTypeButtonActive: {
-        borderColor: '#6366f1',
+        borderColor: 'black',
         backgroundColor: '#eef2ff',
     },
     cardTypeText: {
@@ -659,7 +684,7 @@ const styles = StyleSheet.create({
         marginBottom: 2,
     },
     cardTypeTextActive: {
-        color: '#6366f1',
+        color: 'black',
         fontWeight: '600',
     },
     rateText: {
@@ -757,13 +782,13 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     authButton: {
-        backgroundColor: '#6366f1',
+        backgroundColor: 'black',
         height: height * 0.06,
         borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: height * 0.03,
-        shadowColor: '#6366f1',
+        shadowColor: 'black',
         shadowOffset: {
             width: 0,
             height: 4,
@@ -786,7 +811,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         padding: width * 0.04,
         borderLeftWidth: 4,
-        borderLeftColor: '#6366f1',
+        borderLeftColor: 'black',
     },
     infoText: {
         fontSize: width * 0.035,

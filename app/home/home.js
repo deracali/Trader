@@ -1,15 +1,15 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Dimensions,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Dimensions,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import BottomTab from '../../components/tab/tab';
 
@@ -46,185 +46,223 @@ const cardNumberLengths = {
   Target: 15,
 };
 
-const giftCards = [
-  {
-    id: 1,
-    name: 'Amazon',
-    category: 'Shopping',
-    discount: '5% OFF',
-    image: '🛒',
-    color: '#FF9900',
-    popular: true,
-    cardLimit: cardNumberLengths.Amazon,
-    types: [
-      { country: 'Brazil', rate: 820, currency: 'BRL' },
-      { country: 'Germany', rate: 800, currency: 'EUR' },
-      { country: 'USA', rate: 780, currency: 'USD' },
-    ],
-  },
-  {
-    id: 2,
-    name: 'Netflix',
-    category: 'Entertainment',
-    discount: '10% OFF',
-    image: '🎬',
-    color: '#E50914',
-    popular: true,
-    cardLimit: cardNumberLengths.Netflix,
-    types: [{ country: 'Global', rate: 850, currency: 'USD' }],
-  },
-  {
-    id: 3,
-    name: 'Spotify',
-    category: 'Entertainment',
-    discount: '15% OFF',
-    image: '🎵',
-    color: '#1DB954',
-    popular: false,
-    cardLimit: cardNumberLengths.Spotify,
-    types: [{ country: 'Global', rate: 860, currency: 'USD' }],
-  },
-  {
-    id: 4,
-    name: 'Steam',
-    category: 'Gaming',
-    discount: '8% OFF',
-    image: '🎮',
-    color: '#171A21',
-    popular: true,
-    cardLimit: cardNumberLengths.Steam,
-    types: [
-      { country: 'USA', rate: 650, currency: 'USD' },
-      { country: 'EU', rate: 630, currency: 'EUR' },
-    ],
-  },
-  {
-    id: 5,
-    name: 'Starbucks',
-    category: 'Food',
-    discount: '12% OFF',
-    image: '☕',
-    color: '#00704A',
-    popular: false,
-    cardLimit: cardNumberLengths.Starbucks,
-    types: [
-      { country: 'USA', rate: 720, currency: 'USD' },
-      { country: 'UK', rate: 710, currency: 'GBP' },
-    ],
-  },
-  {
-    id: 6,
-    name: 'iTunes',
-    category: 'Entertainment',
-    discount: '7% OFF',
-    image: '🎵',
-    color: '#FA57C1',
-    popular: false,
-    cardLimit: cardNumberLengths.iTunes,
-    types: [
-      { country: 'USA', rate: 750, currency: 'USD' },
-      { country: 'Canada', rate: 740, currency: 'CAD' },
-    ],
-  },
-  {
-    id: 7,
-    name: 'RazorGold',
-    category: 'Gaming',
-    discount: '5% OFF',
-    image: '💎',
-    color: '#00BFFF',
-    popular: true,
-    cardLimit: cardNumberLengths.RazorGold,
-    types: [{ country: 'Global', rate: 900, currency: 'USD' }],
-  },
-  {
-    id: 8,
-    name: 'GooglePlay',
-    category: 'Entertainment',
-    discount: '10% OFF',
-    image: '▶️',
-    color: '#4285F4',
-    popular: true,
-    cardLimit: cardNumberLengths.GooglePlay,
-    types: [{ country: 'Global', rate: 880, currency: 'USD' }],
-  },
-  {
-    id: 9,
-    name: 'Xbox',
-    category: 'Gaming',
-    discount: '12% OFF',
-    image: '🎮',
-    color: '#107C10',
-    popular: true,
-    cardLimit: cardNumberLengths.Xbox,
-    types: [{ country: 'Global', rate: 860, currency: 'USD' }],
-  },
-  {
-    id: 10,
-    name: 'Playstation',
-    category: 'Gaming',
-    discount: '15% OFF',
-    image: '🎮',
-    color: '#003087',
-    popular: true,
-    cardLimit: cardNumberLengths.Playstation,
-    types: [{ country: 'Global', rate: 870, currency: 'USD' }],
-  },
-  {
-    id: 11,
-    name: 'Nintendo',
-    category: 'Gaming',
-    discount: '8% OFF',
-    image: '🎮',
-    color: '#E60012',
-    popular: true,
-    cardLimit: cardNumberLengths.Nintendo,
-    types: [{ country: 'Global', rate: 840, currency: 'USD' }],
-  },
-  {
-    id: 12,
-    name: 'Walmart',
-    category: 'Shopping',
-    discount: '5% OFF',
-    image: '🛒',
-    color: '#0071CE',
-    popular: false,
-    cardLimit: cardNumberLengths.Walmart,
-    types: [{ country: 'USA', rate: 790, currency: 'USD' }],
-  },
-  {
-    id: 13,
-    name: 'Uber',
-    category: 'Transport',
-    discount: '7% OFF',
-    image: '🚗',
-    color: '#000000',
-    popular: false,
-    cardLimit: cardNumberLengths.Uber,
-    types: [{ country: 'Global', rate: 760, currency: 'USD' }],
-  },
-  {
-    id: 14,
-    name: 'Target',
-    category: 'Shopping',
-    discount: '10% OFF',
-    image: '🎯',
-    color: '#CC0000',
-    popular: false,
-    cardLimit: cardNumberLengths.Target,
-    types: [{ country: 'USA', rate: 770, currency: 'USD' }],
-  },
-];
+// const giftCards = [
+//   {
+//     id: 1,
+//     name: 'Amazon',
+//     category: 'Shopping',
+//     discount: '5% OFF',
+//     image: '🛒',
+//     color: '#FF9900',
+//     popular: true,
+//     cardLimit: cardNumberLengths.Amazon,
+//     types: [
+//       { country: 'Brazil', rate: 820, currency: 'BRL' },
+//       { country: 'Germany', rate: 800, currency: 'EUR' },
+//       { country: 'USA', rate: 780, currency: 'USD' },
+//     ],
+//   },
+//   {
+//     id: 2,
+//     name: 'Netflix',
+//     category: 'Entertainment',
+//     discount: '10% OFF',
+//     image: '🎬',
+//     color: '#E50914',
+//     popular: true,
+//     cardLimit: cardNumberLengths.Netflix,
+//     types: [{ country: 'Global', rate: 850, currency: 'USD' }],
+//   },
+//   {
+//     id: 3,
+//     name: 'Spotify',
+//     category: 'Entertainment',
+//     discount: '15% OFF',
+//     image: '🎵',
+//     color: '#1DB954',
+//     popular: false,
+//     cardLimit: cardNumberLengths.Spotify,
+//     types: [{ country: 'Global', rate: 860, currency: 'USD' }],
+//   },
+//   {
+//     id: 4,
+//     name: 'Steam',
+//     category: 'Gaming',
+//     discount: '8% OFF',
+//     image: '🎮',
+//     color: '#171A21',
+//     popular: true,
+//     cardLimit: cardNumberLengths.Steam,
+//     types: [
+//       { country: 'USA', rate: 650, currency: 'USD' },
+//       { country: 'EU', rate: 630, currency: 'EUR' },
+//     ],
+//   },
+//   {
+//     id: 5,
+//     name: 'Starbucks',
+//     category: 'Food',
+//     discount: '12% OFF',
+//     image: '☕',
+//     color: '#00704A',
+//     popular: false,
+//     cardLimit: cardNumberLengths.Starbucks,
+//     types: [
+//       { country: 'USA', rate: 720, currency: 'USD' },
+//       { country: 'UK', rate: 710, currency: 'GBP' },
+//     ],
+//   },
+//   {
+//     id: 6,
+//     name: 'iTunes',
+//     category: 'Entertainment',
+//     discount: '7% OFF',
+//     image: '🎵',
+//     color: '#FA57C1',
+//     popular: false,
+//     cardLimit: cardNumberLengths.iTunes,
+//     types: [
+//       { country: 'USA', rate: 750, currency: 'USD' },
+//       { country: 'Canada', rate: 740, currency: 'CAD' },
+//     ],
+//   },
+//   {
+//     id: 7,
+//     name: 'RazorGold',
+//     category: 'Gaming',
+//     discount: '5% OFF',
+//     image: '💎',
+//     color: '#00BFFF',
+//     popular: true,
+//     cardLimit: cardNumberLengths.RazorGold,
+//     types: [{ country: 'Global', rate: 900, currency: 'USD' }],
+//   },
+//   {
+//     id: 8,
+//     name: 'GooglePlay',
+//     category: 'Entertainment',
+//     discount: '10% OFF',
+//     image: '▶️',
+//     color: '#4285F4',
+//     popular: true,
+//     cardLimit: cardNumberLengths.GooglePlay,
+//     types: [{ country: 'Global', rate: 880, currency: 'USD' }],
+//   },
+//   {
+//     id: 9,
+//     name: 'Xbox',
+//     category: 'Gaming',
+//     discount: '12% OFF',
+//     image: '🎮',
+//     color: '#107C10',
+//     popular: true,
+//     cardLimit: cardNumberLengths.Xbox,
+//     types: [{ country: 'Global', rate: 860, currency: 'USD' }],
+//   },
+//   {
+//     id: 10,
+//     name: 'Playstation',
+//     category: 'Gaming',
+//     discount: '15% OFF',
+//     image: '🎮',
+//     color: '#003087',
+//     popular: true,
+//     cardLimit: cardNumberLengths.Playstation,
+//     types: [{ country: 'Global', rate: 870, currency: 'USD' }],
+//   },
+//   {
+//     id: 11,
+//     name: 'Nintendo',
+//     category: 'Gaming',
+//     discount: '8% OFF',
+//     image: '🎮',
+//     color: '#E60012',
+//     popular: true,
+//     cardLimit: cardNumberLengths.Nintendo,
+//     types: [{ country: 'Global', rate: 840, currency: 'USD' }],
+//   },
+//   {
+//     id: 12,
+//     name: 'Walmart',
+//     category: 'Shopping',
+//     discount: '5% OFF',
+//     image: '🛒',
+//     color: '#0071CE',
+//     popular: false,
+//     cardLimit: cardNumberLengths.Walmart,
+//     types: [{ country: 'USA', rate: 790, currency: 'USD' }],
+//   },
+//   {
+//     id: 13,
+//     name: 'Uber',
+//     category: 'Transport',
+//     discount: '7% OFF',
+//     image: '🚗',
+//     color: '#000000',
+//     popular: false,
+//     cardLimit: cardNumberLengths.Uber,
+//     types: [{ country: 'Global', rate: 760, currency: 'USD' }],
+//   },
+//   {
+//     id: 14,
+//     name: 'Target',
+//     category: 'Shopping',
+//     discount: '10% OFF',
+//     image: '🎯',
+//     color: '#CC0000',
+//     popular: false,
+//     cardLimit: cardNumberLengths.Target,
+//     types: [{ country: 'USA', rate: 770, currency: 'USD' }],
+//   },
+// ];
 
 
+const emojiMap = {
+  "Amazon": "🛒",
+  "iTunes": "🎵",
+  "GooglePlay": "▶️",
+  "Google Play": "▶️",
+  "Apple": "🍎",
+  "Target": "🎯",
+  "Steam": "🎮",
+  "Netflix": "📺",
+  "Walmart": "🏪",
+  "eBay": "💰",
+  "Playstation": "🕹️",
+  "PlayStation": "🕹️",
+  "Roblox": "🧱",
+  "Spotify": "🎧",
+  "Uber": "🚗",
+  "Starbucks": "☕",
+  "Xbox": "🎮",
+  "RazorGold": "💎",
+  "Nintendo": "🎮"
+};
 
-  const filteredCards = giftCards.filter(card =>
-    (selectedCategory === 'All' || card.category === selectedCategory) &&
-    card.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+ const [giftCards, setGiftCards] = useState([]);
+
+ useEffect(() => {
+    fetch('https://trader-pmqb.onrender.com/api/cards/get')
+      .then(response => response.json())
+      .then(result => {
+        if (Array.isArray(result.data)) {
+          const enrichedCards = result.data.map(card => ({
+            ...card,
+            image: emojiMap[card.name] || '🎁',
+          }));
+          setGiftCards(enrichedCards);
+        } else {
+          console.error('Unexpected response format:', result);
+        }
+      })
+      .catch(error => {
+        console.error('Failed to fetch gift cards:', error);
+        Alert.alert('Error', 'Could not load gift cards.');
+      });
+  }, []);
 
   const renderGiftCard = (card) => (
-    <TouchableOpacity key={card.id} style={styles.giftCard}>
+    <TouchableOpacity key={card._id} style={styles.giftCard}>
       {card.popular && (
         <View style={styles.popularBadge}>
           <Text style={styles.popularText}>🔥 Popular</Text>
@@ -238,19 +276,53 @@ const giftCards = [
       <View style={styles.discountContainer}>
         <Text style={styles.discountText}>{card.discount}</Text>
       </View>
-    <TouchableOpacity
-      style={styles.buyButton}
-      onPress={() =>
-        router.push({
-          pathname: 'form/cardForm',
-          params: { card: JSON.stringify(card) }, // ✅ pass full card data
-        })
-      }
-    >
-      <Text style={styles.buyButtonText}>Trade</Text>
-    </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.buyButton}
+        onPress={() =>
+          router.push({
+            pathname: 'form/cardForm',
+            params: { card: JSON.stringify(card) },
+          })
+        }
+      >
+        <Text style={styles.buyButtonText}>Trade</Text>
+      </TouchableOpacity>
     </TouchableOpacity>
   );
+
+  const filteredCards = giftCards.filter(card =>
+    (selectedCategory === 'All' || card.category === selectedCategory) &&
+    card.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // const renderGiftCard = (card) => (
+  //   <TouchableOpacity key={card.id} style={styles.giftCard}>
+  //     {card.popular && (
+  //       <View style={styles.popularBadge}>
+  //         <Text style={styles.popularText}>🔥 Popular</Text>
+  //       </View>
+  //     )}
+  //     <View style={[styles.cardIcon, { backgroundColor: card.color }]}>
+  //       <Text style={styles.cardEmoji}>{card.image}</Text>
+  //     </View>
+  //     <Text style={styles.cardName}>{card.name}</Text>
+  //     <Text style={styles.cardCategory}>{card.category}</Text>
+  //     <View style={styles.discountContainer}>
+  //       <Text style={styles.discountText}>{card.discount}</Text>
+  //     </View>
+  //   <TouchableOpacity
+  //     style={styles.buyButton}
+  //     onPress={() =>
+  //       router.push({
+  //         pathname: 'form/cardForm',
+  //         params: { card: JSON.stringify(card) }, // ✅ pass full card data
+  //       })
+  //     }
+  //   >
+  //     <Text style={styles.buyButtonText}>Trade</Text>
+  //   </TouchableOpacity>
+  //   </TouchableOpacity>
+  // );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -377,10 +449,10 @@ const styles = StyleSheet.create({
     width: width * 0.12,
     height: width * 0.12,
     borderRadius: width * 0.06,
-    backgroundColor: '#6366f1',
+    backgroundColor: 'black',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#6366f1',
+    shadowColor: 'black',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -434,7 +506,7 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: width * 0.045,
     fontWeight: 'bold',
-    color: '#6366f1',
+    color: 'black',
     marginBottom: height * 0.005,
   },
   statLabel: {
@@ -457,7 +529,7 @@ const styles = StyleSheet.create({
   },
   seeAllText: {
     fontSize: width * 0.035,
-    color: '#6366f1',
+    color: 'black',
     fontWeight: '600',
   },
   categoryScroll: {
@@ -473,8 +545,8 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
   },
   categoryButtonSelected: {
-    backgroundColor: '#6366f1',
-    borderColor: '#6366f1',
+    backgroundColor: 'black',
+    borderColor: 'black',
   },
   categoryText: {
     fontSize: width * 0.035,
@@ -556,7 +628,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   buyButton: {
-    backgroundColor: '#6366f1',
+    backgroundColor: 'black',
     borderRadius: 8,
     paddingVertical: height * 0.01,
     alignItems: 'center',
