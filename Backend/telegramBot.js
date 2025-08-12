@@ -35,23 +35,24 @@ bot.on('message', async (msg) => {
    sessions.set(chatId, { step: 1, data: {} });
 
    try {
-     // Fetch gift cards
      const { data } = await axios.get('https://trader-sr5j.onrender.com/api/cards/get');
 
      if (data.data && data.data.length > 0) {
        const cardNames = data.data.map(card => card.name).join(', ');
 
-       return bot.sendMessage(
+       await bot.sendMessage(
          chatId,
          `🔄 Restarting...\n\n🛍️ What gift card are you trading?\n\nAvailable: ${cardNames}`
        );
      } else {
-       return bot.sendMessage(chatId, '⚠️ No gift cards available at the moment.');
+       await bot.sendMessage(chatId, '⚠️ No gift cards available at the moment.');
      }
    } catch (error) {
      console.error(error);
-     return bot.sendMessage(chatId, '❌ Could not fetch gift cards right now.');
+     await bot.sendMessage(chatId, '❌ Could not fetch gift cards right now.');
    }
+
+   return; // ⬅ stops further execution so it won’t hit the next block
  }
 
 
@@ -102,6 +103,8 @@ bot.on('message', async (msg) => {
       console.error(error);
       return bot.sendMessage(chatId, '❌ Could not fetch gift cards right now.');
     }
+
+    return;
   }
 
   const session = sessions.get(chatId);
