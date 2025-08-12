@@ -129,7 +129,7 @@ bot.on('message', async (msg) => {
       let message = `📌 *${card.name}* card type: *${card.category}*\n\n`;
       message += `Available options:\n`;
       card.types.forEach(rate => {
-        message += `- ${rate.country} (${rate.currency})\n`;
+        message += `- (${rate.currency})\n`;
       });
 
       await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
