@@ -148,14 +148,17 @@ bot.on('message', async (msg) => {
       session.step = 3;
       return bot.sendMessage(chatId, '💰 Amount (number only):');
 
-    case 3: { // Calculate NGN + prompt card number
+      case 3: { // Calculate NGN + prompt card number
       session.data.amount = Number(text);
       try {
         const { data } = await axios.get('https://trader-sr5j.onrender.com/api/cards/get');
         const card = data.data.find(c => c.name.toLowerCase() === session.data.type.toLowerCase());
         if (!card) return bot.sendMessage(chatId, '❌ Card not found.');
         const rateEntry = card.types.find(t => t.currency === session.data.currency);
-        if (!rateEntry) return bot.sendMessage(chatId, '❌ No rate for that currency.');
+        if (!rateEntry) {
+          // Removed "No rate for that currency" error, just prompt to enter valid currency again
+          return bot.sendMessage(chatId, `Please type a valid currency option for *${card.name}*.` , { parse_mode: 'Markdown' });
+        }
 
         session.data.exchangeRate = rateEntry.rate;
         session.data.ngnAmount = session.data.amount * rateEntry.rate;
