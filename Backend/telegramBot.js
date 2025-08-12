@@ -88,22 +88,22 @@ bot.on('message', async (msg) => {
 
     try {
       const { data } = await axios.get('https://trader-sr5j.onrender.com/api/cards/get');
-      if (data.data && data.data.length > 0) {
-        // Extract card names
-        const cardNames = data.data.map(card => card.name).join(', ');
 
-        return bot.sendMessage(
+      if (data.data && data.data.length > 0) {
+        const cardNames = data.data.map(card => card.name).join(', ');
+        await bot.sendMessage(
           chatId,
           `🛍️ What gift card are you trading?\n\nAvailable: ${cardNames}`
         );
       } else {
-        return bot.sendMessage(chatId, '⚠️ No gift cards available at the moment.');
+        await bot.sendMessage(chatId, '⚠️ No gift cards available at the moment.');
       }
     } catch (error) {
       console.error(error);
-      return bot.sendMessage(chatId, '❌ Could not fetch gift cards right now.');
+      await bot.sendMessage(chatId, '❌ Could not fetch gift cards right now.');
     }
 
+    // Exit completely so no other logic runs
     return;
   }
 
