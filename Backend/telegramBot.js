@@ -16,7 +16,7 @@ bot.on('message', async (msg) => {
   const photo = msg.photo;
 
   // /help command
- if (text === '/help') {
+ if (text === 'help') {
    return bot.sendMessage(
      chatId,
      `📖 *Bot Commands & Shortcuts*\n\n` +
@@ -30,11 +30,30 @@ bot.on('message', async (msg) => {
    );
  }
 
-   if (text === 'restart' || text === 'start over' || text === 'maybe restart') {
-    sessions.delete(chatId);
-    sessions.set(chatId, { step: 1, data: {} });
-    return bot.sendMessage(chatId, '🔄 Restarting... 🛍️ What gift card are you trading?');
-  }
+ if (text === 'restart' || text === 'start over' || text === 'maybe restart') {
+   sessions.delete(chatId);
+   sessions.set(chatId, { step: 1, data: {} });
+
+   try {
+     // Fetch gift cards
+     const { data } = await axios.get('https://trader-sr5j.onrender.com/api/cards/get');
+
+     if (data.data && data.data.length > 0) {
+       const cardNames = data.data.map(card => card.name).join(', ');
+
+       return bot.sendMessage(
+         chatId,
+         `🔄 Restarting...\n\n🛍️ What gift card are you trading?\n\nAvailable: ${cardNames}`
+       );
+     } else {
+       return bot.sendMessage(chatId, '⚠️ No gift cards available at the moment.');
+     }
+   } catch (error) {
+     console.error(error);
+     return bot.sendMessage(chatId, '❌ Could not fetch gift cards right now.');
+   }
+ }
+
 
   // NEW: Show all gift cards and rates if user types 'rates'
   if (text === 'rates') {
@@ -90,7 +109,6 @@ bot.on('message', async (msg) => {
   switch (session.step) {
     case 1: // Card type
     session.data.type = text;
-    session.step = 2;
 
     try {
       const { data } = await axios.get('https://trader-sr5j.onrender.com/api/cards/get');
@@ -106,8 +124,6 @@ bot.on('message', async (msg) => {
 
       // Show the card type (category) and prompt them
       let message = `📌 *${card.name}* card type: *${card.category}*\n\n`;
-
-      // If you want to also list rate options:
       message += `Available options:\n`;
       card.types.forEach(rate => {
         message += `- ${rate.country} (${rate.currency})\n`;
@@ -115,7 +131,9 @@ bot.on('message', async (msg) => {
 
       await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
 
+      session.step = 2; // <-- moved here so it updates only after fetching
       return bot.sendMessage(chatId, '💳 Which option do you want? (Type the currency exactly as shown above)');
+
     } catch (error) {
       console.error(error);
       session.step = 1;
