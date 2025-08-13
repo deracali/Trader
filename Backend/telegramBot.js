@@ -129,13 +129,13 @@ bot.on('message', async (msg) => {
       let message = `📌 *${card.name}* card type: *${card.category}*\n\n`;
       message += `Available options:\n`;
       card.types.forEach(rate => {
-        message += `- (${rate.currency})\n`;
+        message += `(${rate.currency})\n`;
       });
 
       await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
 
       session.step = 2; // <-- moved here so it updates only after fetching
-      return bot.sendMessage(chatId, '💳 Which option do you want? (Type the currency exactly as shown above)');
+      return bot.sendMessage(chatId, '💳 Which option do you want? (Type the card type exactly as shown above)');
 
     } catch (error) {
       console.error(error);
@@ -211,59 +211,86 @@ bot.on('message', async (msg) => {
     }
 
     case 8: { // Payment method with retry logic
-      const choice = text.toLowerCase();
-      if (choice === 'usdt' || choice === 'btc') {
-        session.data.paymentMethod = choice.toUpperCase();
-        session.step = 9;
+    const choice = text.toLowerCase();
+    if (choice === 'usdt' || choice === 'btc') {
+      session.data.paymentMethod = choice.toUpperCase();
+      session.step = 9;
 
-        try {
-          const { data: rates } = await axios.get('https://trader-sr5j.onrender.com/api/crypto-rate/get');
-          const rateObj = rates.find(r => r.symbol === session.data.paymentMethod);
-          if (rateObj) {
-            session.data.cryptoPayout = session.data.ngnAmount / rateObj.rateInNGN;
-            await bot.sendMessage(
-              chatId,
-              `💸 ₦${session.data.ngnAmount.toLocaleString()} ≈ ${session.data.cryptoPayout.toFixed(8)} ${rateObj.symbol}`
-            );
-          }
-        } catch (e) {
-          console.error(e);
-          await bot.sendMessage(chatId, '⚠️ Could not fetch crypto rate.');
-        }
-        return bot.sendMessage(chatId, `📩 Enter your ${session.data.paymentMethod} wallet address:`);
-      }
-      if (choice === 'bank transfer' || choice === 'bank') {
-        session.data.paymentMethod = 'BANK';
-        session.step = 10;
-        return bot.sendMessage(chatId, '🏦 Enter your bank name:');
-      }
-      await bot.sendMessage(chatId, '❗ Invalid. Type USDT, BTC or Bank');
-      // Keep waiting here until valid input
-      return;
-    }
-
-    case 9: { // Submit without wallet address format validation
-      session.data.walletAddress = text;
       try {
-        const payload = {
-          ...session.data,
-          status: 'pending',
-          cryptoPayout: session.data.cryptoPayout
-        };
-        await axios.post('https://trader-sr5j.onrender.com/api/gift-cards/create', payload);
-       const payoutMessage = (session.data.cryptoPayout !== undefined)
-  ? `\nYou’ll receive ${session.data.cryptoPayout.toFixed(8)} ${session.data.paymentMethod}`
-  : '';
+        // Fetch latest crypto rates
+        const { data: rates } = await axios.get('https://trader-sr5j.onrender.com/api/crypto-rate/get');
+        const rateObj = rates.find(r => r.symbol.toLowerCase() === session.data.paymentMethod.toLowerCase());
 
-await bot.sendMessage(chatId, `✅ Submitted!${payoutMessage}`);
+        if (!rateObj) {
+          return bot.sendMessage(chatId, `⚠️ Rate for ${session.data.paymentMethod} not available.`);
+        }
 
+        // Calculate payout
+        session.data.cryptoPayout = session.data.ngnAmount / rateObj.rateInNGN;
+
+        // Display results
+        await bot.sendMessage(
+          chatId,
+          `💱 ₦${session.data.ngnAmount.toLocaleString()} ≈ ${session.data.cryptoPayout.toFixed(8)} ${rateObj.symbol}`
+        );
       } catch (e) {
         console.error(e);
-        await bot.sendMessage(chatId, '❌ Submission failed.');
+        await bot.sendMessage(chatId, '⚠️ Could not fetch crypto rate.');
       }
-      sessions.delete(chatId);
-      break;
+
+      return bot.sendMessage(chatId, `📩 Enter your ${session.data.paymentMethod} wallet address:`);
     }
+
+    if (choice === 'bank transfer' || choice === 'bank') {
+      session.data.paymentMethod = 'BANK';
+      session.step = 10;
+      return bot.sendMessage(chatId, '🏦 Enter your bank name:');
+    }
+
+    await bot.sendMessage(chatId, '❗ Invalid. Type USDT, BTC, or Bank');
+    return;
+  }
+
+  case 9: { // Submit without wallet address format validation
+  session.data.walletAddress = text;
+
+  // 🔄 Recalculate payout if crypto method and not already set
+  if ((session.data.paymentMethod === 'USDT' || session.data.paymentMethod === 'BTC') && session.data.cryptoPayout === undefined) {
+    try {
+      const { data: rates } = await axios.get('https://trader-sr5j.onrender.com/api/crypto-rate/get');
+      const rateObj = rates.find(r => r.symbol.toLowerCase() === session.data.paymentMethod.toLowerCase());
+
+      if (rateObj) {
+        session.data.cryptoPayout = session.data.ngnAmount / rateObj.rateInNGN;
+      }
+    } catch (e) {
+      console.error('⚠️ Failed to recalc payout in case 9:', e);
+    }
+  }
+
+  try {
+    const payload = {
+      ...session.data,
+      status: 'pending',
+      cryptoPayout: session.data.cryptoPayout
+    };
+
+    await axios.post('https://trader-sr5j.onrender.com/api/gift-cards/create', payload);
+
+    const payoutMessage = (session.data.cryptoPayout !== undefined)
+      ? `\nYou’ll receive ${session.data.cryptoPayout.toFixed(8)} ${session.data.paymentMethod}`
+      : '';
+
+    await bot.sendMessage(chatId, `✅ Submitted for review!\n\n💳 Payment: up to 8 minutes\n💰 Crypto: up to 15 minutes !${payoutMessage}`);
+
+  } catch (e) {
+    console.error(e);
+    await bot.sendMessage(chatId, '❌ Submission failed.');
+  }
+
+  sessions.delete(chatId);
+  break;
+}
 
     // BANK FLOW
     case 10:
