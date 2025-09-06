@@ -30,7 +30,7 @@ bot.on('message', async (msg) => {
    );
  }
 
- if (text === 'restart' || text === 'start over' || text === 'maybe restart') {
+ if (text === 'trade' || text === 'start over' || text === 'maybe restart') {
    sessions.delete(chatId);
    sessions.set(chatId, { step: 1, data: {} });
 
@@ -42,7 +42,7 @@ bot.on('message', async (msg) => {
 
        await bot.sendMessage(
          chatId,
-         `🔄 Restarting...\n\n🛍️ What gift card are you trading?\n\nAvailable: ${cardNames}`
+         `🔄 Starting Trade....\n\n🛍️ What gift card are you trading?\n\nAvailable: ${cardNames}`
        );
      } else {
        await bot.sendMessage(chatId, '⚠️ No gift cards available at the moment.');
@@ -321,7 +321,7 @@ bot.on('message', async (msg) => {
       break;
 
     default:
-      return bot.sendMessage(chatId, '❓ Type anything to restart');
+      return bot.sendMessage(chatId, '❓ Sorry, I did not understand that. Type "trade" to start over or "help" for commands.');
   }
 });
 

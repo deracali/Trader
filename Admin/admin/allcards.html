@@ -189,7 +189,7 @@
             display: inline-block;
         }
 
-        
+
 .status-successful {
             background: #28a745;
             color: white;
@@ -351,7 +351,7 @@
                 grid-template-columns: 1fr;
             }
         }
-      
+
 
     </style>
 </head>
@@ -363,10 +363,10 @@
         </div>
 
         <div class="controls">
-            <input 
-                type="text" 
-                id="searchInput" 
-                class="search-box" 
+            <input
+                type="text"
+                id="searchInput"
+                class="search-box"
                 placeholder="Search by username, card number, or description..."
             >
             <select id="statusFilter" class="filter-select">
@@ -421,7 +421,7 @@
         // Fetch gift cards from API
         async function fetchGiftCards() {
             try {
-                const response = await fetch('http://localhost:5000/api/gift-cards/get', {
+                const response = await fetch('https://trader-sr5j.onrender.com/api/gift-cards/get', {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
@@ -433,7 +433,7 @@
                 }
 
                 const data = await response.json();
-                
+
                 if (data.success && data.data) {
                     allCards = data.data;
                     filteredCards = [...allCards];
@@ -479,13 +479,35 @@
             });
         }
 
-        // Format currency
-        function formatCurrency(amount, currency) {
-            return new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: currency || 'USD'
-            }).format(amount);
-        }
+        // Map invalid names to valid ISO 4217 currency codes
+function getValidCurrencyCode(currency) {
+    const map = {
+        'Germany': 'EUR',
+        'US Dollar': 'USD',
+        'Nigeria': 'NGN',
+        'GBP': 'GBP'
+        // Add more mappings if needed
+    };
+    return map[currency] || currency || 'USD';
+}
+
+// Format currency safely
+function formatCurrency(amount, currency) {
+    const code = getValidCurrencyCode(currency);
+    try {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: code
+        }).format(amount);
+    } catch (e) {
+        console.warn(`Invalid currency code: ${currency}, defaulting to USD`);
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+        }).format(amount);
+    }
+}
+
 
         // Render cards
         function renderCards() {
@@ -511,7 +533,7 @@
                             <div class="card-type">${card.type} Gift Card</div>
                             <span class="card-status status-${card.status}">${card.status}</span>
                         </div>
-                        
+
                         <div class="card-body">
                             <div class="amount-display">
                                 <div class="primary-amount">${formatCurrency(card.amount, card.currency)}</div>
@@ -526,19 +548,19 @@
                                     <div class="info-label">Card Number</div>
                                     <div class="info-value">${card.cardNumber}</div>
                                 </div>
-                                
+
                                 ${hasUser ? `
                                 <div class="info-item">
                                     <div class="info-label">User</div>
                                     <div class="info-value">${card.user.username || card.user.name || 'N/A'}</div>
                                 </div>
                                 ` : ''}
-                                
+
                                 <div class="info-item">
                                     <div class="info-label">Description</div>
                                     <div class="info-value">${card.userDescription || 'No description'}</div>
                                 </div>
-                                
+
                                 <div class="info-item">
                                     <div class="info-label">Read Status</div>
                                     <div class="info-value">${card.read ? 'Read' : 'Unread'} (${card.readCount} times)</div>
@@ -572,9 +594,9 @@
                             ` : ''}
 
                             ${card.imageUrl ? `
-                            <img 
-                                src="${card.imageUrl}" 
-                                alt="Gift Card Image" 
+                            <img
+                                src="${card.imageUrl}"
+                                alt="Gift Card Image"
                                 class="card-image"
                                 onclick="window.open('${card.imageUrl}', '_blank')"
                                 onerror="this.style.display='none'"
@@ -610,7 +632,7 @@
                     card.bankDetails?.bankName?.toLowerCase() || ''
                 ];
 
-                const searchMatch = searchTerm === '' || searchFields.some(field => 
+                const searchMatch = searchTerm === '' || searchFields.some(field =>
                     field.includes(searchTerm)
                 );
 

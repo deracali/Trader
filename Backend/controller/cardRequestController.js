@@ -227,7 +227,7 @@ export const deleteAllGiftCards = async (req, res) => {
 
 export const getUserAchievements = async (req, res) => {
    const { id } = req.params;
-  const userId = id;  
+  const userId = id;
 console.log('Route params:', req.params);
 console.log('All cards for user:', await GiftCard.find({ user: userId }));
 console.log('Sample cards in DB:', (await GiftCard.find().limit(3)).map(c => ({ id: c._id, user: c.user.toString(), status: c.status })));
@@ -247,9 +247,9 @@ console.log('Sample cards in DB:', (await GiftCard.find().limit(3)).map(c => ({ 
         earned: true,
         color: 'black',
       });
-    } 
+    }
 
-    
+
     // Big Spender
     const totalSpent = giftCards.reduce((sum, gc) => sum + gc.amount, 0);
     if (totalSpent > 500) {
