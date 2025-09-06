@@ -15,6 +15,25 @@ bot.on('message', async (msg) => {
   const text = rawText.toLowerCase(); // lowercase for case-insensitive comparison
   const photo = msg.photo;
 
+
+
+
+  // Handle /start command
+  if (text === '/start') {
+    // New session for the user
+    sessions.set(chatId, { step: 0, data: {} });
+
+    const welcomeMessage =
+      `👋 Welcome to Gift Card Trader Bot!\n\n` +
+      `💡 This bot helps you trade gift cards and get crypto or bank payouts.\n\n` +
+      `📌 To start trading, type *trade*.\n` +
+      `ℹ️ You can also type *help* to see all commands.`;
+
+    return bot.sendMessage(chatId, welcomeMessage, { parse_mode: 'Markdown' });
+  }
+
+
+
   // /help command
  if (text === 'help') {
    return bot.sendMessage(
