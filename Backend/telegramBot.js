@@ -24,10 +24,12 @@ bot.on('message', async (msg) => {
     sessions.set(chatId, { step: 0, data: {} });
 
     const welcomeMessage =
-      `👋 Welcome to Gift Card Trader Bot!\n\n` +
-      `💡 This bot helps you trade gift cards and get crypto or bank payouts.\n\n` +
-      `📌 To start trading, type *trade*.\n` +
-      `ℹ️ You can also type *help* to see all commands.`;
+    const welcomeMessage =
+  `👋 Welcome to Gift Card Trader Bot!\n\n` +
+  `💡 This bot helps you trade gift cards and get crypto or bank payouts.\n\n` +
+  `📌 To start trading, type *trade*.\n` +
+  `💱 To check gift card rates, type *rates*.\n` +
+  `ℹ️ You can also type *help* to see all commands.`;
 
     return bot.sendMessage(chatId, welcomeMessage, { parse_mode: 'Markdown' });
   }
