@@ -24,7 +24,6 @@ bot.on('message', async (msg) => {
     sessions.set(chatId, { step: 0, data: {} });
 
     const welcomeMessage =
-    const welcomeMessage =
   `👋 Welcome to Gift Card Trader Bot!\n\n` +
   `💡 This bot helps you trade gift cards and get crypto or bank payouts.\n\n` +
   `📌 To start trading, type *trade*.\n` +
