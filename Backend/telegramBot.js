@@ -103,29 +103,29 @@ bot.on('message', async (msg) => {
   }
 
 
-  // if (!sessions.has(chatId)) {
-  //   sessions.set(chatId, { step: 1, data: {} });
-  //
-  //   try {
-  //     const { data } = await axios.get('https://trader-sr5j.onrender.com/api/cards/get');
-  //
-  //     if (data.data && data.data.length > 0) {
-  //       const cardNames = data.data.map(card => card.name).join(', ');
-  //       await bot.sendMessage(
-  //         chatId,
-  //         `🛍️ What gift card are you trading?\n\nAvailable: ${cardNames}`
-  //       );
-  //     } else {
-  //       await bot.sendMessage(chatId, '⚠️ No gift cards available at the moment.');
-  //     }
-  //   } catch (error) {
-  //     console.error(error);
-  //     await bot.sendMessage(chatId, '❌ Could not fetch gift cards right now.');
-  //   }
-  //
-  //   // Exit completely so no other logic runs
-  //   return;
-  // }
+  if (!sessions.has(chatId)) {
+    sessions.set(chatId, { step: 1, data: {} });
+
+    try {
+      const { data } = await axios.get('https://trader-sr5j.onrender.com/api/cards/get');
+
+      if (data.data && data.data.length > 0) {
+        const cardNames = data.data.map(card => card.name).join(', ');
+        await bot.sendMessage(
+          chatId,
+          `🛍️ What gift card are you trading?\n\nAvailable: ${cardNames}`
+        );
+      } else {
+        await bot.sendMessage(chatId, '⚠️ No gift cards available at the moment.');
+      }
+    } catch (error) {
+      console.error(error);
+      await bot.sendMessage(chatId, '❌ Could not fetch gift cards right now.');
+    }
+
+    // Exit completely so no other logic runs
+    return;
+  }
 
   const session = sessions.get(chatId);
 
