@@ -24,31 +24,30 @@ bot.on('message', async (msg) => {
     sessions.set(chatId, { step: 0, data: {} });
 
     const welcomeMessage =
-      `👋 Welcome to Gift Card Trader Bot!\n\n` +
-      `💡 This bot helps you trade gift cards and get crypto or bank payouts.\n\n` +
-      `📌 To start trading, type *trade*.\n` +
-      `💱 To check gift card rates, type *rates*.\n` +
-      `ℹ️ You can also type *help* to see all commands.`;
+    `👋 Welcome to Gift Card Trader Bot!\n\n` +
+    `💡 This bot helps you trade gift cards and get crypto or bank payouts.\n\n` +
+    `📌 To start trading, type trade.\n` +
+    `💱 To check gift card rates, type rates.\n` +
+    `ℹ️ You can also type help to see all commands.`;
 
-    return bot.sendMessage(chatId, welcomeMessage, { parse_mode: 'MarkdownV2' });
+  return bot.sendMessage(chatId, welcomeMessage);
   }
 
 
 
 
   // /help command
- if (text === 'help') {
-   return bot.sendMessage(
-     chatId,
-     `📖 *Bot Commands & Shortcuts*\n\n` +
-     `• /help — Show this help message\n` +
-     `• trade — Start the trade process from the beginning\n` +
-     `• rates — Show all available gift cards and their rates\n` +
-     `• start over — Same as restart\n` +
-     `💡 Tip: Type the gift card name exactly as listed when prompted.`,
-     { parse_mode: 'Markdown' }
-   );
- }
+  if (text === 'help') {
+    return bot.sendMessage(
+      chatId,
+      `📖 Bot Commands & Shortcuts\n\n` +
+      `• /help — Show this help message\n` +
+      `• trade — Start the trade process from the beginning\n` +
+      `• rates — Show all available gift cards and their rates\n` +
+      `• start over — Same as restart\n` +
+      `💡 Tip: Type the gift card name exactly as listed when prompted.`
+    );
+  }
 
  if (text === 'trade' || text === 'start over' || text === 'maybe restart') {
    sessions.delete(chatId);
@@ -418,7 +417,14 @@ case 3: {
       ? `\nYou’ll receive ${session.data.cryptoPayout.toFixed(8)} ${session.data.paymentMethod}`
       : '';
 
-    await bot.sendMessage(chatId, `✅ Submitted for review!\n\n💳 Payment: up to 8 minutes\n💰 Crypto: up to 15 minutes !${payoutMessage}`);
+      await bot.sendMessage(
+    chatId,
+    `✅ Submitted for review!
+
+    💳 Payment: up to 8 minutes
+    💰 Crypto: up to 15 minutes${payoutMessage}`
+  );
+
 
   } catch (e) {
     console.error(e);
@@ -449,10 +455,10 @@ case 3: {
     chatId,
     `✅ Your request has been submitted successfully!
 
-  💳 Payment processing: up to 8 minutes
-  💰 Crypto transfer: up to 15 minutes
+    💳 Payment processing: up to 8 minutes
+    💰 Crypto transfer: up to 15 minutes
 
-  To start another trade, simply type "trade".`
+    To start another trade, simply type "trade".`
   );
 
 
