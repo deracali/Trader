@@ -131,11 +131,12 @@ bot.on('message', async (msg) => {
   switch (session.step) {
     // CASE 1 — choose card type (ensure we do not advance on invalid input)
     case 1: {
-    // If we previously showed a numbered list, allow numeric replies to pick one
+    // If user replied with a number, check against cached card list
     if (session.data.listingCards && /^\d+$/.test(rawText)) {
       const idx = Number(rawText) - 1;
       const cards = session.data.listingCards;
       const chosen = cards[idx];
+
       if (!chosen) {
         return bot.sendMessage(
           chatId,
@@ -143,125 +144,128 @@ bot.on('message', async (msg) => {
         );
       }
 
-      // accept chosen card and proceed
+      // Accept chosen card
       session.data.card = chosen;
       session.data.type = chosen.name;
       session.data.category = chosen.category;
-      session.data.listingCards = undefined; // clear listing cache
+      session.data.listingCards = undefined; // clear cache
 
-      let message = `📌 *${chosen.name}* card type: *${chosen.category}*\n\nAvailable options:\n`;
-      chosen.types.forEach(rate => { message += `${rate.currency}\n`; });
+      // Show available options (numbered)
+      const optionsList = chosen.types
+        .map((opt, i) => `${i + 1}. ${opt.currency}`)
+        .join('\n');
 
-      await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+      await bot.sendMessage(
+        chatId,
+        `📌 *${chosen.name}* card type: *${chosen.category}*\n\nAvailable options:\n${optionsList}`,
+        { parse_mode: "Markdown" }
+      );
+
+      // Cache options for numeric selection in case 2
+      session.data.listingOptions = chosen.types;
       session.step = 2;
-      return bot.sendMessage(chatId, '💳 Which option do you want? (Type the card type exactly as shown above)');
+      return bot.sendMessage(
+        chatId,
+        `💳 Which option do you want?\nReply with the number (1-${chosen.types.length}) or type the currency name.`
+      );
     }
 
-    // Normal flow: try to find the card by name
+    // Normal flow: user typed card name
     try {
-      const { data } = await axios.get('https://trader-sr5j.onrender.com/api/cards/get');
+      const { data } = await axios.get("https://trader-sr5j.onrender.com/api/cards/get");
       const cards = data.data || [];
       if (!cards.length) {
-        return bot.sendMessage(chatId, '⚠️ No gift cards available at the moment.');
+        return bot.sendMessage(chatId, "⚠️ No gift cards available at the moment.");
       }
 
       const card = cards.find(c => c.name.toLowerCase() === text.toLowerCase());
       if (card) {
-        // exact match -> proceed
         session.data.card = card;
         session.data.type = card.name;
         session.data.category = card.category;
 
-        let message = `📌 *${card.name}* card type: *${card.category}*\n\nAvailable options:\n`;
-        card.types.forEach(rate => { message += `${rate.currency}\n`; });
+        const optionsList = card.types.map((opt, i) => `${i + 1}. ${opt.currency}`).join("\n");
 
-        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+        await bot.sendMessage(
+          chatId,
+          `📌 *${card.name}* card type: *${card.category}*\n\nAvailable options:\n${optionsList}`,
+          { parse_mode: "Markdown" }
+        );
+
+        session.data.listingOptions = card.types;
         session.step = 2;
-        return bot.sendMessage(chatId, '💳 Which option do you want? (Type the card type exactly as shown above)');
+        return bot.sendMessage(
+          chatId,
+          `💳 Which option do you want?\nReply with the number (1-${card.types.length}) or type the currency name.`
+        );
       }
 
-      // No exact match -> show numbered list and let user pick
-      // (show all or limit to first N; here we show up to 20 to avoid extremely long lists)
+      // Not found → show numbered list of available cards
       const maxShow = 20;
       const toShow = cards.slice(0, maxShow);
-      const listText = toShow.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
+      const listText = toShow.map((c, i) => `${i + 1}. ${c.name}`).join("\n");
 
-      // cache the list so numeric replies work
       session.data.listingCards = toShow;
 
       let reply = `❌ Card not found. Please either type the card name, or reply with the number (1-${toShow.length}) to choose:\n\n${listText}`;
-      if (cards.length > maxShow) reply += `\n\n...and ${cards.length - maxShow} more. Type the full name if you don't see it above.`;
+      if (cards.length > maxShow) reply += `\n\n...and ${cards.length - maxShow} more. Type the full name if not listed.`;
 
       return bot.sendMessage(chatId, reply);
     } catch (error) {
       console.error(error);
-      return bot.sendMessage(chatId, '❌ Could not fetch card info right now. Please try again.');
+      return bot.sendMessage(chatId, "❌ Could not fetch card info right now. Please try again.");
     }
   }
 
-  // CASE 2 — choose currency option (validate and do NOT advance until valid)
-  // CASE 2 — choose currency option (supports numbers or text; won't advance on invalid input)
   case 2: {
-    // If user replies with a number and we already showed options
+    // If user replied with a number, check cached options
     if (session.data.listingOptions && /^\d+$/.test(rawText)) {
       const idx = Number(rawText) - 1;
-      const opts = session.data.listingOptions;
-      const chosen = opts[idx];
+      const options = session.data.listingOptions;
+      const chosen = options[idx];
+
       if (!chosen) {
         return bot.sendMessage(
           chatId,
-          `❗ Invalid selection. Reply with a number between 1 and ${opts.length}, or type the currency code.`
+          `❗ Invalid selection. Reply with a number between 1 and ${options.length}, or type the currency name.`
         );
       }
 
-      // valid choice
-      session.data.currency = chosen.currency.toUpperCase();
-      session.data.exchangeRate = chosen.rate;
+      // Accept chosen option
+      session.data.currency = chosen.currency;
+      session.data.rate = chosen.rate;
       session.data.listingOptions = undefined;
+
       session.step = 3;
-      return bot.sendMessage(chatId, '💰 Amount (number only):');
+      return bot.sendMessage(chatId, `✅ You selected: ${chosen.currency}\n\nEnter the amount you want to trade:`);
     }
 
-    // Otherwise user typed text
-    const chosenCurrency = text.trim().toUpperCase();
+    // User typed currency name
+    if (session.data.listingOptions) {
+      const chosen = session.data.listingOptions.find(
+        opt => opt.currency.toLowerCase() === text.toLowerCase()
+      );
 
-    // Make sure we already know the card
-    let card = session.data.card;
-    if (!card) {
-      return bot.sendMessage(chatId, '⚠️ Please pick a card first.');
-    }
+      if (!chosen) {
+        const optionsList = session.data.listingOptions
+          .map((opt, i) => `${i + 1}. ${opt.currency}`)
+          .join("\n");
 
-    // Build options if not cached
-    if (!session.data.listingOptions) {
-      session.data.listingOptions = card.types.map(t => ({
-        currency: t.currency.toUpperCase(),
-        rate: t.rate,
-      }));
-    }
+        return bot.sendMessage(
+          chatId,
+          `❌ Invalid option. Please reply with the number (1-${session.data.listingOptions.length}) or type the currency name:\n\n${optionsList}`
+        );
+      }
 
-    // Check if user typed a valid option (case-insensitive)
-    const match = session.data.listingOptions.find(
-      opt => opt.currency.toUpperCase() === chosenCurrency
-    );
-
-    if (match) {
-      // valid -> advance
-      session.data.currency = match.currency;
-      session.data.exchangeRate = match.rate;
+      session.data.currency = chosen.currency;
+      session.data.rate = chosen.rate;
       session.data.listingOptions = undefined;
+
       session.step = 3;
-      return bot.sendMessage(chatId, '💰 Amount (number only):');
+      return bot.sendMessage(chatId, `✅ You selected: ${chosen.currency}\n\nEnter the amount you want to trade:`);
     }
 
-    // Invalid -> re-show available options, don't advance
-    const listText = session.data.listingOptions
-      .map((o, i) => `${i + 1}. ${o.currency} — ₦${o.rate}`)
-      .join('\n');
-
-    return bot.sendMessage(
-      chatId,
-      `❗ Please type one of the valid currency options or reply with the number:\n\n${listText}`
-    );
+    return bot.sendMessage(chatId, "❌ Something went wrong. Please type *trade* to start over.", { parse_mode: "Markdown" });
   }
 
 // CASE 3 — amount (validate numeric and positive; do NOT advance until valid)
