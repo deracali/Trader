@@ -23,7 +23,6 @@ const GiftCardModal = new Schema({
   },
   discount: {
     type: String,
-    required: true,
     trim: true
   },
   color: {
