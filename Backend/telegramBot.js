@@ -31,7 +31,7 @@ bot.on('message', async (msg) => {
       `ℹ️ You can also type *help* to see all commands.`;
 
     return bot.sendMessage(chatId, welcomeMessage, { parse_mode: 'MarkdownV2' });
-  } 
+  }
 
 
 
@@ -446,15 +446,15 @@ case 3: {
         const payload = { ...session.data, status: 'pending' };
         await axios.post('https://trader-sr5j.onrender.com/api/gift-cards/create', payload);
         await bot.sendMessage(
-  chatId,
-  '✅ Your request has been submitted successfully!
+    chatId,
+    `✅ Your request has been submitted successfully!
 
-💳 Payment processing: up to 8 minutes
-💰 Crypto transfer: up to 15 minutes
+  💳 Payment processing: up to 8 minutes
+  💰 Crypto transfer: up to 15 minutes
 
-To start another trade, simply type "trade".
-'
-);
+  To start another trade, simply type "trade".`
+  );
+
 
       } catch (e) {
         console.error(e);
