@@ -41,10 +41,9 @@ bot.on('message', async (msg) => {
      chatId,
      `📖 *Bot Commands & Shortcuts*\n\n` +
      `• /help — Show this help message\n` +
-     `• restart — Start the trade process from the beginning\n` +
+     `• trade — Start the trade process from the beginning\n` +
      `• rates — Show all available gift cards and their rates\n` +
      `• start over — Same as restart\n` +
-     `• maybe restart — Same as restart\n\n` +
      `💡 Tip: Type the gift card name exactly as listed when prompted.`,
      { parse_mode: 'Markdown' }
    );
@@ -103,98 +102,215 @@ bot.on('message', async (msg) => {
   }
 
 
-  if (!sessions.has(chatId)) {
-    sessions.set(chatId, { step: 1, data: {} });
-
-    try {
-      const { data } = await axios.get('https://trader-sr5j.onrender.com/api/cards/get');
-
-      if (data.data && data.data.length > 0) {
-        const cardNames = data.data.map(card => card.name).join(', ');
-        await bot.sendMessage(
-          chatId,
-          `🛍️ What gift card are you trading?\n\nAvailable: ${cardNames}`
-        );
-      } else {
-        await bot.sendMessage(chatId, '⚠️ No gift cards available at the moment.');
-      }
-    } catch (error) {
-      console.error(error);
-      await bot.sendMessage(chatId, '❌ Could not fetch gift cards right now.');
-    }
-
-    // Exit completely so no other logic runs
-    return;
-  }
+  // if (!sessions.has(chatId)) {
+  //   sessions.set(chatId, { step: 1, data: {} });
+  //
+  //   try {
+  //     const { data } = await axios.get('https://trader-sr5j.onrender.com/api/cards/get');
+  //
+  //     if (data.data && data.data.length > 0) {
+  //       const cardNames = data.data.map(card => card.name).join(', ');
+  //       await bot.sendMessage(
+  //         chatId,
+  //         `🛍️ What gift card are you trading?\n\nAvailable: ${cardNames}`
+  //       );
+  //     } else {
+  //       await bot.sendMessage(chatId, '⚠️ No gift cards available at the moment.');
+  //     }
+  //   } catch (error) {
+  //     console.error(error);
+  //     await bot.sendMessage(chatId, '❌ Could not fetch gift cards right now.');
+  //   }
+  //
+  //   // Exit completely so no other logic runs
+  //   return;
+  // }
 
   const session = sessions.get(chatId);
 
   switch (session.step) {
-    case 1: // Card type
-    session.data.type = text;
-
-    try {
-      const { data } = await axios.get('https://trader-sr5j.onrender.com/api/cards/get');
-      const card = data.data.find(c => c.name.toLowerCase() === session.data.type.toLowerCase());
-
-      if (!card) {
-        session.step = 1; // stay in step 1
-        return bot.sendMessage(chatId, '❌ Card not found. Please type one from the list.');
+    // CASE 1 — choose card type (ensure we do not advance on invalid input)
+    case 1: {
+    // If we previously showed a numbered list, allow numeric replies to pick one
+    if (session.data.listingCards && /^\d+$/.test(rawText)) {
+      const idx = Number(rawText) - 1;
+      const cards = session.data.listingCards;
+      const chosen = cards[idx];
+      if (!chosen) {
+        return bot.sendMessage(
+          chatId,
+          `❗ Invalid selection. Reply with a number between 1 and ${cards.length}, or type the card name exactly.`
+        );
       }
 
-      // Save category in session for later
-      session.data.category = card.category;
+      // accept chosen card and proceed
+      session.data.card = chosen;
+      session.data.type = chosen.name;
+      session.data.category = chosen.category;
+      session.data.listingCards = undefined; // clear listing cache
 
-      // Show the card type (category) and prompt them
-      let message = `📌 *${card.name}* card type: *${card.category}*\n\n`;
-      message += `Available options:\n`;
-      card.types.forEach(rate => {
-        message += `(${rate.currency})\n`;
-      });
+      let message = `📌 *${chosen.name}* card type: *${chosen.category}*\n\nAvailable options:\n`;
+      chosen.types.forEach(rate => { message += `${rate.currency}\n`; });
 
       await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
-
-      session.step = 2; // <-- moved here so it updates only after fetching
+      session.step = 2;
       return bot.sendMessage(chatId, '💳 Which option do you want? (Type the card type exactly as shown above)');
+    }
 
+    // Normal flow: try to find the card by name
+    try {
+      const { data } = await axios.get('https://trader-sr5j.onrender.com/api/cards/get');
+      const cards = data.data || [];
+      if (!cards.length) {
+        return bot.sendMessage(chatId, '⚠️ No gift cards available at the moment.');
+      }
+
+      const card = cards.find(c => c.name.toLowerCase() === text.toLowerCase());
+      if (card) {
+        // exact match -> proceed
+        session.data.card = card;
+        session.data.type = card.name;
+        session.data.category = card.category;
+
+        let message = `📌 *${card.name}* card type: *${card.category}*\n\nAvailable options:\n`;
+        card.types.forEach(rate => { message += `${rate.currency}\n`; });
+
+        await bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+        session.step = 2;
+        return bot.sendMessage(chatId, '💳 Which option do you want? (Type the card type exactly as shown above)');
+      }
+
+      // No exact match -> show numbered list and let user pick
+      // (show all or limit to first N; here we show up to 20 to avoid extremely long lists)
+      const maxShow = 20;
+      const toShow = cards.slice(0, maxShow);
+      const listText = toShow.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
+
+      // cache the list so numeric replies work
+      session.data.listingCards = toShow;
+
+      let reply = `❌ Card not found. Please either type the card name, or reply with the number (1-${toShow.length}) to choose:\n\n${listText}`;
+      if (cards.length > maxShow) reply += `\n\n...and ${cards.length - maxShow} more. Type the full name if you don't see it above.`;
+
+      return bot.sendMessage(chatId, reply);
     } catch (error) {
       console.error(error);
-      session.step = 1;
       return bot.sendMessage(chatId, '❌ Could not fetch card info right now. Please try again.');
     }
+  }
 
-    case 2: // Amount
-      session.data.currency = text.toUpperCase();
+  // CASE 2 — choose currency option (validate and do NOT advance until valid)
+  // CASE 2 — choose currency option (supports numbers or text; won't advance on invalid input)
+  case 2: {
+    // If user replies with a number and we already showed options
+    if (session.data.listingOptions && /^\d+$/.test(rawText)) {
+      const idx = Number(rawText) - 1;
+      const opts = session.data.listingOptions;
+      const chosen = opts[idx];
+      if (!chosen) {
+        return bot.sendMessage(
+          chatId,
+          `❗ Invalid selection. Reply with a number between 1 and ${opts.length}, or type the currency code.`
+        );
+      }
+
+      // valid choice
+      session.data.currency = chosen.currency.toUpperCase();
+      session.data.exchangeRate = chosen.rate;
+      session.data.listingOptions = undefined;
       session.step = 3;
       return bot.sendMessage(chatId, '💰 Amount (number only):');
-
-      case 3: { // Calculate NGN + prompt card number
-      session.data.amount = Number(text);
-      try {
-        const { data } = await axios.get('https://trader-sr5j.onrender.com/api/cards/get');
-        const card = data.data.find(c => c.name.toLowerCase() === session.data.type.toLowerCase());
-        if (!card) return bot.sendMessage(chatId, '❌ Card not found.');
-        const rateEntry = card.types.find(t => t.currency === session.data.currency);
-        if (!rateEntry) {
-          // Removed "No rate for that currency" error, just prompt to enter valid currency again
-          return bot.sendMessage(chatId, `Please type a valid currency option for *${card.name}*.` , { parse_mode: 'Markdown' });
-        }
-
-        session.data.exchangeRate = rateEntry.rate;
-        session.data.ngnAmount = session.data.amount * rateEntry.rate;
-
-        await bot.sendMessage(
-          chatId,
-          `💱 1 ${session.data.currency} = ₦${rateEntry.rate}\n` +
-          `💵 You get ≈ ₦${session.data.ngnAmount.toLocaleString()}`
-        );
-        session.step = 4;
-        return bot.sendMessage(chatId, '🔢 Enter the card number:');
-      } catch (e) {
-        console.error(e);
-        return bot.sendMessage(chatId, '❌ Could not fetch card rate.');
-      }
     }
+
+    // Otherwise user typed text
+    const chosenCurrency = text.trim().toUpperCase();
+
+    // Make sure we already know the card
+    let card = session.data.card;
+    if (!card) {
+      return bot.sendMessage(chatId, '⚠️ Please pick a card first.');
+    }
+
+    // Build options if not cached
+    if (!session.data.listingOptions) {
+      session.data.listingOptions = card.types.map(t => ({
+        currency: t.currency.toUpperCase(),
+        rate: t.rate,
+      }));
+    }
+
+    // Check if user typed a valid option (case-insensitive)
+    const match = session.data.listingOptions.find(
+      opt => opt.currency.toUpperCase() === chosenCurrency
+    );
+
+    if (match) {
+      // valid -> advance
+      session.data.currency = match.currency;
+      session.data.exchangeRate = match.rate;
+      session.data.listingOptions = undefined;
+      session.step = 3;
+      return bot.sendMessage(chatId, '💰 Amount (number only):');
+    }
+
+    // Invalid -> re-show available options, don't advance
+    const listText = session.data.listingOptions
+      .map((o, i) => `${i + 1}. ${o.currency} — ₦${o.rate}`)
+      .join('\n');
+
+    return bot.sendMessage(
+      chatId,
+      `❗ Please type one of the valid currency options or reply with the number:\n\n${listText}`
+    );
+  }
+
+// CASE 3 — amount (validate numeric and positive; do NOT advance until valid)
+case 3: {
+  const amountValue = Number(text.trim());
+  if (Number.isNaN(amountValue) || amountValue <= 0) {
+    // keep them at step 3
+    return bot.sendMessage(chatId, '❗ Invalid amount. Please enter a number greater than 0 (e.g., 50):');
+  }
+
+  session.data.amount = amountValue;
+
+  try {
+    // Prefer the card stored in session
+    let card = session.data.card;
+    if (!card) {
+      const { data } = await axios.get('https://trader-sr5j.onrender.com/api/cards/get');
+      card = data.data.find(c => c.name.toLowerCase() === session.data.type.toLowerCase());
+      if (card) session.data.card = card;
+    }
+
+    if (!card) {
+      session.step = 1;
+      return bot.sendMessage(chatId, '❌ Card not found. Please type the card name again.');
+    }
+
+    const rateEntry = card.types.find(t => t.currency.toUpperCase() === session.data.currency);
+    if (!rateEntry) {
+      session.step = 2;
+      const available = card.types.map(t => t.currency).join(', ');
+      return bot.sendMessage(chatId, `⚠️ Rate for ${session.data.currency} not available. Please choose one of: ${available}`);
+    }
+
+    session.data.exchangeRate = rateEntry.rate;
+    session.data.ngnAmount = session.data.amount * rateEntry.rate;
+
+    await bot.sendMessage(
+      chatId,
+      `💱 1 ${session.data.currency} = ₦${rateEntry.rate}\n` +
+      `💵 You get ≈ ₦${session.data.ngnAmount.toLocaleString()}`
+    );
+
+    session.step = 4;
+    return bot.sendMessage(chatId, '🔢 Enter the card number:');
+  } catch (e) {
+    console.error(e);
+    return bot.sendMessage(chatId, '❌ Could not fetch card rate. Please try again or type start over to start the trade over.');
+  }
+}
 
     case 4: // Card number
       session.data.cardNumber = text;
