@@ -25,27 +25,20 @@ const uploadImage = async (filePath) => {
     console.log("✅ Image uploaded successfully. URL:", result.secure_url);
     return result.secure_url;
   } catch (uploadErr) {
-    console.error("❌ Cloudinary upload error:");
-    console.error("Message:", uploadErr.message);
-    if (uploadErr.response && uploadErr.response.body) {
+    console.error("❌ Cloudinary upload error:", uploadErr.message);
+    if (uploadErr.response?.body) {
       console.error("Cloudinary response body:", uploadErr.response.body);
-    } else {
-      console.error(uploadErr);
     }
     throw uploadErr;
   }
 };
 
-// @desc    Create a new gift card sale
-// @route   POST /api/giftcards
-// @access  Public
 export const createGiftCard = async (req, res) => {
   try {
     const {
       type,
       amount,
       currency,
-      cardNumber,
       userDescription,
       user, // userId
       bankName,
@@ -53,19 +46,54 @@ export const createGiftCard = async (req, res) => {
       accountNumber,
       ngnAmount,
       exchangeRate,
-      imageUrl: imageFromBody,
+      imageUrls: imagesFromBody, // optional array of URLs
       paymentMethod,
       cryptoPayout,
       walletAddress,
-      phoneNumber, // ✅ added phoneNumber
+      phoneNumber,
     } = req.body;
 
-    // Validate required fields
-    if (!type || !amount || !currency || !cardNumber) {
-      return res.status(400).json({ message: "Please provide all required fields." });
+    // ----- TEMP DEBUGGING (remove when finished) -----
+    console.log("🔎 Incoming Content-Type header:", req.headers?.["content-type"] || req.headers);
+    console.log("🔎 Incoming req.body keys:", Object.keys(req.body || {}));
+    try {
+      // show first ~20 entries of body for safety
+      const previewObj = Object.fromEntries(Object.entries(req.body || {}).slice(0, 20));
+      console.log("🔎 req.body preview:", JSON.stringify(previewObj, null, 2));
+    } catch (dbgErr) {
+      console.log("🔎 req.body preview error:", dbgErr);
+    }
+    console.log("🔎 req.files keys:", Object.keys(req.files || {}));
+    if (req.files?.images) {
+      const ims = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
+      console.log(
+        "🔎 received images count:",
+        ims.length,
+        ims.map((f) => ({ originalname: f.originalname, mimetype: f.mimetype, size: f.size }))
+      );
+    }
+    // ----- END DEBUGGING -----
+
+    // ✅ Normalize cardNumbers
+    let cardNumbers = [];
+    if (req.body.cardNumbers) {
+      cardNumbers = Array.isArray(req.body.cardNumbers)
+        ? req.body.cardNumbers
+        : [req.body.cardNumbers];
+      cardNumbers = cardNumbers.map((c) => c.trim()).filter(Boolean);
     }
 
-    // Parse numbers
+    // (optional) log normalized cardNumbers for debugging
+    console.log("🔎 normalized cardNumbers:", cardNumbers);
+
+    // ✅ Validate required fields
+    if (!type || !amount || !currency || cardNumbers.length === 0) {
+      return res
+        .status(400)
+        .json({ message: "Please provide all required fields (including card numbers)." });
+    }
+
+    // ✅ Parse numbers
     const parsedAmount = Number(amount.toString().replace(/,/g, ""));
     const parsedNgnAmount = ngnAmount ? Number(ngnAmount.toString().replace(/,/g, "")) : null;
     const parsedExchangeRate = exchangeRate ? Number(exchangeRate.toString().replace(/,/g, "")) : null;
@@ -75,40 +103,55 @@ export const createGiftCard = async (req, res) => {
       return res.status(400).json({ message: "Invalid card amount." });
     }
 
-    // Handle image
-    let finalImageUrl = null;
-    if (req.files && req.files.image) {
-      const imageFile = req.files.image;
-      if (!imageFile.mimetype.startsWith("image/")) {
-        return res.status(400).json({ message: "Invalid file type. Please upload an image." });
+    // ✅ Handle multiple images
+    let finalImageUrls = [];
+
+    // From form-data
+    if (req.files?.images) {
+      const images = Array.isArray(req.files.images)
+        ? req.files.images
+        : [req.files.images];
+
+      for (const img of images) {
+        if (!img.mimetype.startsWith("image/")) {
+          return res.status(400).json({ message: "Invalid file type. Please upload only images." });
+        }
+        const uploadedUrl = await uploadImage(img.tempFilePath);
+        finalImageUrls.push(uploadedUrl);
       }
-      finalImageUrl = await uploadImage(imageFile.tempFilePath);
-    } else if (imageFromBody?.startsWith("http")) {
-      finalImageUrl = imageFromBody;
-    } else {
-      return res.status(400).json({ message: "Please upload an image or provide a valid image URL." });
+    }
+
+    // From body URLs
+    if (imagesFromBody && Array.isArray(imagesFromBody)) {
+      finalImageUrls.push(...imagesFromBody.filter((url) => url.startsWith("http")));
+    }
+
+    if (finalImageUrls.length === 0) {
+      return res
+        .status(400)
+        .json({ message: "Please upload at least one image or provide valid image URLs." });
     }
 
     // 👉 Check for referrer
     let referrerBankDetails = null;
     if (user) {
-      const foundUser = await User.findById(user).populate('referrer');
+      const foundUser = await User.findById(user).populate("referrer");
       if (foundUser?.referrer) {
         referrerBankDetails = {
           accountName: foundUser.referrer.accountName,
           accountNumber: foundUser.referrer.accountNumber,
-          bankName: foundUser.referrer.bankName
+          bankName: foundUser.referrer.bankName,
         };
       }
     }
 
-    // Save gift card with referrer info and phone number
+    // ✅ Save gift card
     const newGiftCard = await GiftCard.create({
       type,
       amount: parsedAmount,
       currency,
-      cardNumber,
-      imageUrl: finalImageUrl,
+      cardNumbers,
+      imageUrls: finalImageUrls,
       ngnAmount: isNaN(parsedNgnAmount) ? null : parsedNgnAmount,
       exchangeRate: isNaN(parsedExchangeRate) ? null : parsedExchangeRate,
       user: user || null,
@@ -121,24 +164,22 @@ export const createGiftCard = async (req, res) => {
         accountName: accountName || null,
         accountNumber: accountNumber || null,
       },
-      referrerBankDetails, // ✅ includes referrer account info
-      phoneNumber: phoneNumber || null, // ✅ added here
+      referrerBankDetails,
+      phoneNumber: phoneNumber || null,
       paymentMethod: paymentMethod || null,
       cryptoPayout: isNaN(parsedCryptoPayout) ? null : parsedCryptoPayout,
       walletAddress: walletAddress || null,
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Gift card sale created successfully.",
-      giftCard: newGiftCard
+      giftCard: newGiftCard,
     });
   } catch (error) {
     console.error("❗ Error in createGiftCard:", error.message);
-    res.status(500).json({ message: "Server error." });
+    return res.status(500).json({ message: "Server error." });
   }
 };
-
-
 
 
 

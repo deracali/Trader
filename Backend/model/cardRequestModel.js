@@ -15,15 +15,14 @@ const giftCardSchema = new mongoose.Schema({
     required: true,
     default: 'USD',
   },
-  cardNumber: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  imageUrl: {
-    type: String,
-    required: true,
-  },
+  cardNumbers: [{  // <-- Array of card numbers
+     type: String,
+     trim: true,
+   }],
+   imageUrls: [{   // <-- Array of image URLs
+     type: String,
+     required: true,
+   }],
   ngnAmount: {
     type: Number,
   },

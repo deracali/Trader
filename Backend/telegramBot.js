@@ -9,6 +9,27 @@ if (!token) throw new Error('❌ TELEGRAM_BOT_TOKEN missing');
 const bot = new TelegramBot(token, { polling: true });
 const sessions = new Map();
 
+
+
+function buildTypeDisplay(t) {
+  if (!t) return "";
+  // If t.type already contains something like "50+" assume it's full
+  if (t.type && /\d+\+/.test(String(t.type))) {
+    return String(t.type).trim();
+  }
+  // Prefer t.type, then t.country, then t.currency as main text
+  let out = (t.type && String(t.type).trim()) ||
+            (t.country && String(t.country).trim()) ||
+            (t.currency && String(t.currency).trim()) || "";
+  // Append minAmount if provided and not already included
+  if (t.minAmount && !/\d+\+/.test(out)) {
+    out = (out + " " + String(t.minAmount) + "+").trim();
+  }
+  return out;
+}
+
+
+
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id.toString();
   const rawText = msg.text?.trim() || '';
@@ -89,8 +110,11 @@ bot.on('message', async (msg) => {
       data.data.forEach(card => {
         message += `*${card.name}*\n`;  // you can add markdown formatting
         card.types.forEach(rate => {
-          message += `- ${rate.country}: 1 ${rate.currency} = ₦${rate.rate}\n`;
-        });
+    const label = buildTypeDisplay(rate) || (rate.currency ? rate.currency : "—");
+    const rateValue = rate.rate ?? rate.exchangeRate ?? rate.rateInNGN ?? "N/A";
+    message += `- ${label}: 1 ${rate.currency || ""} = ₦${rateValue}\n`;
+  });
+
         message += '\n';
       });
 
@@ -151,9 +175,14 @@ bot.on('message', async (msg) => {
       session.data.listingCards = undefined; // clear cache
 
       // Show available options (numbered)
-      const optionsList = chosen.types
-        .map((opt, i) => `${i + 1}. ${opt.currency}`)
-        .join('\n');
+      // replace the old optionsList creation with:
+  const optionsList = chosen.types
+    .map((opt, i) => {
+      const typeDisplay = buildTypeDisplay(opt);
+      return `${i + 1}. ${opt.currency || "—"} ${typeDisplay ? "(" + typeDisplay + ")" : ""}`;
+    })
+    .join("\n");
+
 
       await bot.sendMessage(
         chatId,
@@ -184,7 +213,14 @@ bot.on('message', async (msg) => {
         session.data.type = card.name;
         session.data.category = card.category;
 
-        const optionsList = card.types.map((opt, i) => `${i + 1}. ${opt.currency}`).join("\n");
+        // replace the old optionsList creation with:
+    const optionsList = card.types
+      .map((opt, i) => {
+        const typeDisplay = buildTypeDisplay(opt);
+        return `${i + 1}. ${opt.currency || "—"} ${typeDisplay ? "(" + typeDisplay + ")" : ""}`;
+      })
+      .join("\n");
+
 
         await bot.sendMessage(
           chatId,
@@ -218,93 +254,144 @@ bot.on('message', async (msg) => {
   }
 
   case 2: {
-    // If user replied with a number, check cached options
-    if (session.data.listingOptions && /^\d+$/.test(rawText)) {
-      const idx = Number(rawText) - 1;
-      const options = session.data.listingOptions;
-      const chosen = options[idx];
+  // If user replied with a number, check cached options
+  if (session.data.listingOptions && /^\d+$/.test(rawText)) {
+    const idx = Number(rawText) - 1;
+    const options = session.data.listingOptions;
+    const chosen = options[idx];
 
-      if (!chosen) {
-        return bot.sendMessage(
-          chatId,
-          `❗ Invalid selection. Reply with a number between 1 and ${options.length}, or type the currency name.`
-        );
-      }
-
-      // Accept chosen option
-      session.data.currency = chosen.currency;
-      session.data.rate = chosen.rate;
-      session.data.listingOptions = undefined;
-
-      session.step = 3;
-      return bot.sendMessage(chatId, `✅ You selected: ${chosen.currency}\n\nEnter the amount you want to trade:`);
-    }
-
-    // User typed currency name
-    if (session.data.listingOptions) {
-      const chosen = session.data.listingOptions.find(
-        opt => opt.currency.toLowerCase() === text.toLowerCase()
+    if (!chosen) {
+      return bot.sendMessage(
+        chatId,
+        `❗ Invalid selection. Reply with a number between 1 and ${options.length}, or type the currency or type label.`
       );
-
-      if (!chosen) {
-        const optionsList = session.data.listingOptions
-          .map((opt, i) => `${i + 1}. ${opt.currency}`)
-          .join("\n");
-
-        return bot.sendMessage(
-          chatId,
-          `❌ Invalid option. Please reply with the number (1-${session.data.listingOptions.length}) or type the currency name:\n\n${optionsList}`
-        );
-      }
-
-      session.data.currency = chosen.currency;
-      session.data.rate = chosen.rate;
-      session.data.listingOptions = undefined;
-
-      session.step = 3;
-      return bot.sendMessage(chatId, `✅ You selected: ${chosen.currency}\n\nEnter the amount you want to trade:`);
     }
 
-    return bot.sendMessage(chatId, "❌ Something went wrong. Please type *trade* to start over.", { parse_mode: "Markdown" });
+    // Accept chosen option
+    session.data.currency = chosen.currency; // may be undefined for some types
+    session.data.rate = chosen.rate ?? chosen.exchangeRate ?? chosen.rateInNGN ?? null;
+    session.data.selectedType = chosen; // store the whole object for later
+    session.data.listingOptions = undefined;
+    session.step = 3;
+    return bot.sendMessage(chatId, `✅ You selected: ${chosen.currency || buildTypeDisplay(chosen)}\n\nEnter the amount you want to trade:`);
   }
+
+  // If user typed a currency or type label, try to match
+  if (session.data.listingOptions) {
+    const userChoice = text.trim().toLowerCase();
+
+    // Try to match currency first
+    let chosen = session.data.listingOptions.find(
+      opt => (opt.currency && opt.currency.toLowerCase() === userChoice)
+    );
+
+    // If not found, try matching type display (e.g. "physical 20+", "us physical 50+")
+    if (!chosen) {
+      chosen = session.data.listingOptions.find(
+        opt => buildTypeDisplay(opt).toLowerCase() === userChoice || (opt.type && opt.type.toLowerCase() === userChoice)
+      );
+    }
+
+    if (!chosen) {
+      const optionsList = session.data.listingOptions
+        .map((opt, i) => `${i + 1}. ${opt.currency || "—"} ${buildTypeDisplay(opt) ? "(" + buildTypeDisplay(opt) + ")" : ""}`)
+        .join("\n");
+
+      return bot.sendMessage(
+        chatId,
+        `❌ Invalid option. Please reply with the number (1-${session.data.listingOptions.length}) or type the currency or type label:\n\n${optionsList}`
+      );
+    }
+
+    session.data.currency = chosen.currency;
+    session.data.rate = chosen.rate ?? chosen.exchangeRate ?? chosen.rateInNGN ?? null;
+    session.data.selectedType = chosen; // store chosen object
+    session.data.listingOptions = undefined;
+    session.step = 3;
+    return bot.sendMessage(chatId, `✅ You selected: ${chosen.currency || buildTypeDisplay(chosen)}\n\nEnter the amount you want to trade:`);
+  }
+
+  return bot.sendMessage(chatId, "❌ Something went wrong. Please type *trade* to start over.", { parse_mode: "Markdown" });
+}
+
 
 // CASE 3 — amount (validate numeric and positive; do NOT advance until valid)
 case 3: {
   const amountValue = Number(text.trim());
   if (Number.isNaN(amountValue) || amountValue <= 0) {
-    // keep them at step 3
     return bot.sendMessage(chatId, '❗ Invalid amount. Please enter a number greater than 0 (e.g., 50):');
   }
 
   session.data.amount = amountValue;
 
   try {
-    // Prefer the card stored in session
+    // Ensure we have the card object
     let card = session.data.card;
     if (!card) {
       const { data } = await axios.get('https://trader-sr5j.onrender.com/api/cards/get');
       card = data.data.find(c => c.name.toLowerCase() === session.data.type.toLowerCase());
       if (card) session.data.card = card;
     }
-
     if (!card) {
       session.step = 1;
       return bot.sendMessage(chatId, '❌ Card not found. Please type the card name again.');
     }
 
-    const rateEntry = card.types.find(t => t.currency.toUpperCase() === session.data.currency);
+    // Prefer the previously-chosen type object if stored
+    let rateEntry = session.data.selectedType;
+
+    // If not stored, attempt a robust lookup using session.data.currency (may be currency or type label)
     if (!rateEntry) {
-      session.step = 2;
-      const available = card.types.map(t => t.currency).join(', ');
-      return bot.sendMessage(chatId, `⚠️ Rate for ${session.data.currency} not available. Please choose one of: ${available}`);
+      const userChoice = (session.data.currency || "").toString().trim().toLowerCase();
+
+      // Try currency first
+      rateEntry = card.types.find(t => (t.currency && t.currency.toLowerCase() === userChoice));
+
+      // Fallback: match type display or t.type
+      if (!rateEntry) {
+        rateEntry = card.types.find(t => buildTypeDisplay(t).toLowerCase() === userChoice || (t.type && t.type.toLowerCase() === userChoice));
+      }
     }
 
-    session.data.exchangeRate = rateEntry.rate;
-    session.data.ngnAmount = session.data.amount * rateEntry.rate;
+    // Last fallback: if still not found but there's only one type, use it
+    if (!rateEntry && Array.isArray(card.types) && card.types.length === 1) {
+      rateEntry = card.types[0];
+    }
+
+    if (!rateEntry) {
+      session.step = 2;
+      const available = card.types.map(t => `${t.currency || "—"} ${buildTypeDisplay(t) ? "(" + buildTypeDisplay(t) + ")" : ""}`).join(', ');
+      return bot.sendMessage(chatId, `⚠️ Rate for your selection not available. Please choose one of: ${available}`);
+    }
+
+    // Validate minimum if provided
+    let minAmount = 0;
+    if (rateEntry.minAmount) {
+      const n = Number(String(rateEntry.minAmount).replace(/[^\d.]/g, ""));
+      if (isFinite(n)) minAmount = n;
+    } else if (rateEntry.type) {
+      const m = String(rateEntry.type).match(/(\d+)\+/);
+      if (m) minAmount = Number(m[1]);
+    }
+
+    if (minAmount && session.data.amount < minAmount) {
+      return bot.sendMessage(chatId, `❗ The minimum amount for this card type is ${minAmount}. Please enter an amount ≥ ${minAmount}:`);
+    }
+
+    // Determine rate (support multiple possible fields)
+    const exchangeRate = rateEntry.rate ?? rateEntry.exchangeRate ?? rateEntry.rateInNGN ?? null;
+    if (!exchangeRate) {
+      session.step = 2;
+      const available = card.types.map(t => `${t.currency || "—"} ${buildTypeDisplay(t) ? "(" + buildTypeDisplay(t) + ")" : ""}`).join(', ');
+      return bot.sendMessage(chatId, `⚠️ No exchange rate found for that option. Choose another: ${available}`);
+    }
+
+    session.data.exchangeRate = Number(exchangeRate);
+    session.data.ngnAmount = session.data.amount * session.data.exchangeRate;
 
     await bot.sendMessage(
       chatId,
-      `💱 1 ${session.data.currency} = ₦${rateEntry.rate}\n` +
+      `💱 1 ${rateEntry.currency || buildTypeDisplay(rateEntry)} = ₦${session.data.exchangeRate}\n` +
       `💵 You get ≈ ₦${session.data.ngnAmount.toLocaleString()}`
     );
 
