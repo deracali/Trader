@@ -43,7 +43,7 @@ useEffect(() => {
       const accountNumber = await AsyncStorage.getItem('accountNumber');
       const bankName = await AsyncStorage.getItem('bankName');
 // console.log(email)
-    
+
 
       setUserDetails(prev => ({
         ...prev,
@@ -145,7 +145,7 @@ useEffect(() => {
       }
       console.log(userId)
 
-      const res = await axios.get( `https://trader-pmqb.onrender.com/api/gift-cards/achievements/${userId}`, {
+      const res = await axios.get( `https://trader-sr5j-0k7o.onrender.com/api/gift-cards/achievements/${userId}`, {
         params: { userId },
       });
       setAchievements(res.data);
@@ -182,7 +182,7 @@ useEffect(() => {
       }
 
       // console.log('📡 Fetching gift cards from server...');
-      const res = await axios.get('https://trader-pmqb.onrender.com/api/gift-cards/get');
+      const res = await axios.get('https://trader-sr5j-0k7o.onrender.com/api/gift-cards/get');
 
       // console.log('✅ Gift cards response:', res.data);
       const giftCards = res.data?.data || [];
@@ -249,7 +249,7 @@ const fetchGiftCards = async () => {
       return;
     }
 
-    const response = await fetch('https://trader-pmqb.onrender.com/api/gift-cards/get');
+    const response = await fetch('https://trader-sr5j-0k7o.onrender.com/api/gift-cards/get');
     const json = await response.json();
 
     // console.log('📦 Full response from /get:', json);
@@ -311,7 +311,7 @@ const handleSaveDetails = async () => {
       bankName: editingDetails.bankName || ''
     };
 
-    const response = await axios.put(`https://trader-pmqb.onrender.com/api/users/update/${userId}`, payload);
+    const response = await axios.put(`https://trader-sr5j-0k7o.onrender.com/api/users/update/${userId}`, payload);
 
     console.log('✅ User update response:', response.data);
 
@@ -380,7 +380,7 @@ const handleLogout = () => {
       const userId = await AsyncStorage.getItem('userId'); // Ensure key is lowercase or as saved
       if (!userId) return;
 
-      const response = await axios.get(`https://trader-pmqb.onrender.com/api/users/get/${userId}`);
+      const response = await axios.get(`https://trader-sr5j-0k7o.onrender.com/api/users/get/${userId}`);
       setUserData(response.data);
     } catch (error) {
       console.error('Failed to fetch user data:', error);
@@ -427,7 +427,7 @@ const handleOpenEditModal = () => {
             <Text style={styles.modalSaveText}>Save</Text>
           </TouchableOpacity>
         </View>
-        
+
         <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Full Name</Text>
@@ -490,7 +490,7 @@ const handleOpenEditModal = () => {
               <Text style={styles.headerTitle}>Your Profile</Text>
             </View>
 
-          <TouchableOpacity 
+          <TouchableOpacity
   onPress={handleOpenEditModal}
   style={styles.editButton}
 >
@@ -514,11 +514,11 @@ const handleOpenEditModal = () => {
               <Text style={styles.profileMember}>Member since {formattedDate}</Text>
             </View>
           </View>
-          
+
           {/* User Details Section */}
           <View style={styles.userDetailsSection}>
             <Text style={styles.sectionTitle}>Account Information</Text>
-            
+
             <View style={styles.detailRow}>
               <View style={styles.detailIconContainer}>
                 <Ionicons name="mail-outline" size={16} color="black" />
@@ -549,7 +549,7 @@ const handleOpenEditModal = () => {
               </View>
             </View>
           </View>
-          
+
        <View style={styles.levelContainer}>
       <View style={styles.levelHeader}>
         <View>
@@ -623,7 +623,7 @@ const handleOpenEditModal = () => {
           <View>
             <Text style={styles.sectionTitle}>Your Achievements</Text>
             <Text style={styles.sectionSubtitle}>Unlock rewards by completing challenges</Text>
-            
+
             {achievements.map((achievement) => (
               <View
                 key={achievement.id}
@@ -639,7 +639,7 @@ const handleOpenEditModal = () => {
                   ]}>
                     <Text style={styles.achievementEmoji}>{achievement.icon}</Text>
                   </View>
-                  
+
                   <View style={styles.achievementContent}>
                     <View style={styles.achievementTop}>
                       <View style={{ flex: 1 }}>
@@ -652,7 +652,7 @@ const handleOpenEditModal = () => {
                         </View>
                       )}
                     </View>
-                    
+
                    {achievement.earned && achievement.date ? (
   <Text style={styles.achievementDate}>
     Earned on {new Date(achievement.date).toLocaleDateString()}
@@ -690,7 +690,7 @@ const handleOpenEditModal = () => {
           <View>
             <Text style={styles.sectionTitle}>Recent Activity</Text>
             <Text style={styles.sectionSubtitle}>Your latest purchases and achievements</Text>
-            
+
         {recentActivity.map((activity, index) => (
   <View key={index} style={styles.activityCard}>
     <View style={styles.activityRow}>
@@ -730,7 +730,7 @@ const handleOpenEditModal = () => {
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
-      
+
       {renderEditModal()}
       <BottomTab />
     </SafeAreaView>

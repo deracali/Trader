@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
-// const API_URL = 'https://trader-pmqb.onrender.com/api/gift-cards/get';
+// const API_URL = 'https://trader-sr5j-0k7o.onrender.com/api/gift-cards/get';
 
 const CardSuccessPage = () => {
   const [giftCard, setGiftCard] = useState(null);
@@ -25,7 +25,7 @@ const CardSuccessPage = () => {
   let isActive = true;             // guard against state updates after unmount
   const fetchGiftCards = async () => {
     try {
-      const res = await fetch('https://trader-pmqb.onrender.com/api/gift-cards/get');
+      const res = await fetch('https://trader-sr5j-0k7o.onrender.com/api/gift-cards/get');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const payload = await res.json();
       console.log('payload:', payload);
@@ -120,9 +120,9 @@ const CardSuccessPage = () => {
           {/* Status Container */}
           <View style={[
               styles.statusContainer,
-              { 
+              {
                 backgroundColor: statusConfig.bgColor,
-                borderColor: statusConfig.borderColor 
+                borderColor: statusConfig.borderColor
               }
             ]}>
             <View style={[
@@ -131,15 +131,15 @@ const CardSuccessPage = () => {
               ]}>
               <Text style={styles.statusIcon}>{statusConfig.icon}</Text>
             </View>
-            
+
             <Text style={[styles.statusTitle, { color: statusConfig.color }]}>
               {statusConfig.title}
             </Text>
-            
+
             <Text style={styles.processingMessage}>
               {statusConfig.message}
             </Text>
-            
+
             {/* ALWAYS show companyFeedback here */}
             <Text style={styles.statusDescription}>
               {companyFeedback || 'No additional feedback available.'}
@@ -149,7 +149,7 @@ const CardSuccessPage = () => {
           {/* Additional Info */}
           <View style={styles.infoContainer}>
             <Text style={styles.infoText}>
-              {status === 'successful' 
+              {status === 'successful'
                 ? "Your card will be delivered to your registered address within 5-7 business days. Track your delivery status in the app."
                 : status === 'pending'
                 ? "Please keep this page open while we process your request. This usually takes 2-3 minutes."
@@ -162,7 +162,7 @@ const CardSuccessPage = () => {
           <View style={styles.buttonContainer}>
             {status === 'successful' && (
               <>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.authButton}
                   onPress={onContinue}
                 >
@@ -170,8 +170,8 @@ const CardSuccessPage = () => {
                     Continue to Dashboard
                   </Text>
                 </TouchableOpacity>
-                
-                <TouchableOpacity 
+
+                <TouchableOpacity
                   style={[styles.authButton, styles.secondaryButton]}
                   onPress={onGoHome}
                 >
@@ -181,26 +181,26 @@ const CardSuccessPage = () => {
                 </TouchableOpacity>
               </>
             )}
-            
+
             {status === 'pending' && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.authButton, styles.authButtonDisabled]}
                 disabled
               >
                 <Text style={styles.authButtonText}>Processing...</Text>
               </TouchableOpacity>
             )}
-            
+
             {status === 'failed' && (
               <>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.authButton}
                   onPress={onContinue}
                 >
                   <Text style={styles.authButtonText}>Try Again</Text>
                 </TouchableOpacity>
-                
-                <TouchableOpacity 
+
+                <TouchableOpacity
                   style={[styles.authButton, styles.secondaryButton]}
                   onPress={onGoHome}
                 >
@@ -222,7 +222,7 @@ const CardSuccessPage = () => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1, 
+    flex: 1,
     backgroundColor: 'white',
   },
   keyboardView: {

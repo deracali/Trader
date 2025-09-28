@@ -17,7 +17,7 @@ import {
 
 const { width, height } = Dimensions.get('window');
 
-const BASE_URL = 'https://trader-pmqb.onrender.com/api/users';
+const BASE_URL = 'https://trader-sr5j-0k7o.onrender.com/api/users';
 
 const GiftCardAuth = () => {
   const router = useRouter();
@@ -76,8 +76,8 @@ const handleAuth = async () => {
     setLoading(true);
 
     const endpoint = isSignUp
-      ? `https://trader-pmqb.onrender.com/api/users/signup`
-      : `https://trader-pmqb.onrender.com/api/users/login`;
+      ? `https://trader-sr5j-0k7o.onrender.com/api/users/signup`
+      : `https://trader-sr5j-0k7o.onrender.com/api/users/login`;
 
     const response = await fetch(endpoint, {
       method: 'POST',

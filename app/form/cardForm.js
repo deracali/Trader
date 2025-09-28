@@ -25,18 +25,75 @@ const GiftCardPurchaseForm = () => {
   // form state
    const router = useRouter();
   const [cardAmount, setCardAmount] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
+  const [cardNumbers, setCardNumbers] = useState(['']);
   const [ngnAmount, setNgnAmount] = useState('0');
-  const [cardImage, setCardImage] = useState(null);
+  const [cardImages, setCardImages] = useState([]);
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
 const [userDescription, setUserDescription] = useState('');
+const [paymentMethod, setPaymentMethod] = useState('bank'); // default
+const [walletAddress, setWalletAddress] = useState('');
+const [bankDetails, setBankDetails] = useState({
+  bankName: '',
+  accountName: '',
+  accountNumber: '',
+});
+const [cryptoRates, setCryptoRates] = useState({});
+const [isFetchingRate, setIsFetchingRate] = useState(false);
+
+
+
+useEffect(() => {
+  const fetchBankDetails = async () => {
+    try {
+      const bankName = await AsyncStorage.getItem('bankName');
+      const accountName = await AsyncStorage.getItem('accountName');
+      const accountNumber = await AsyncStorage.getItem('accountNumber');
+
+      setBankDetails({
+        bankName: bankName || '',
+        accountName: accountName || '',
+        accountNumber: accountNumber || '',
+      });
+    } catch (error) {
+      console.error('Error fetching bank details:', error);
+    }
+  };
+
+  if (paymentMethod === 'bank') {
+    fetchBankDetails();
+  }
+}, [paymentMethod]);
+
+
+
+
+useEffect(() => {
+  const fetchCryptoRates = async () => {
+    setIsFetchingRate(true);
+    try {
+      const res = await axios.get('https://trader-sr5j-0k7o.onrender.com/api/crypto-rate/get');
+      // Convert to dictionary for easy lookup
+      const rates = {};
+      res.data.forEach((item) => {
+        rates[item.symbol.toUpperCase()] = item.rateInNGN;
+      });
+      setCryptoRates(rates);
+    } catch (err) {
+      console.error('Failed to fetch crypto rates:', err.message);
+    } finally {
+      setIsFetchingRate(false);
+    }
+  };
+
+  fetchCryptoRates();
+}, []);
 
 
 
   // pull in your param
   const { card } = useLocalSearchParams();
-  
+
   // More robust parsing with error handling
   const parsedCard = (() => {
     try {
@@ -67,20 +124,13 @@ const [userDescription, setUserDescription] = useState('');
     return acc;
   }, {}) || {};
 
-  const cardNumberLengths = parsedCard?.types?.reduce((acc, t) => {
-    if (t.numberLength && !isNaN(parseInt(t.numberLength))) {
-      const key = `${parsedCard.name} (${t.country})`;
-      acc[key] = parseInt(t.numberLength);
-    }
-    return acc;
-  }, {}) || {};
 
   // single state for which card is selected
   const [selectedCard, setSelectedCard] = useState('');
-  
+
   // Add state for current currency to ensure proper updates
   const [currentCurrency, setCurrentCurrency] = useState('USD');
-  
+
   // Initialize selected card when available types change
   useEffect(() => {
     if (availableCardTypes.length > 0 && !selectedCard) {
@@ -105,13 +155,27 @@ const [userDescription, setUserDescription] = useState('');
   // recalc NGN whenever amount or selectedCard changes
   useEffect(() => {
     if (cardAmount && selectedCard && !isNaN(parseFloat(cardAmount))) {
-      const rate = cardExchangeRates[selectedCard] || 0;
-      const val = parseFloat(cardAmount) * rate;
+      let val = 0;
+
+      if (paymentMethod === 'usdt') {
+        // Convert NGN to USDT
+        const ngnValue = parseFloat(cardAmount) * (cardExchangeRates[selectedCard] || 0);
+        const usdtRate = cryptoRates['USDT'] || 0;
+        if (usdtRate > 0) {
+          val = ngnValue / usdtRate;  // ✅ NGN ÷ USDT rate
+        }
+      } else {
+        // Normal NGN calculation
+        const rate = cardExchangeRates[selectedCard] || 0;
+        val = parseFloat(cardAmount) * rate;
+      }
+
       setNgnAmount(Number.isFinite(val) ? val.toLocaleString() : '0');
     } else {
       setNgnAmount('0');
     }
-  }, [cardAmount, selectedCard, cardExchangeRates]);
+  }, [cardAmount, selectedCard, cardExchangeRates, paymentMethod, cryptoRates]);
+
 
   // format and validate card number
   const formatCardNumber = (txt) =>
@@ -121,88 +185,109 @@ const [userDescription, setUserDescription] = useState('');
       .trim()
       .toUpperCase();
 
-  const handleCardNumberChange = (txt) => {
-    setCardNumber(formatCardNumber(txt));
-    // Clear card number error when user starts typing
-    if (errors.cardNumber) {
-      setErrors(prev => ({ ...prev, cardNumber: undefined }));
-    }
-  };
+      const handleCardNumberChange = (txt, index) => {
+        const formatted = formatCardNumber(txt);
+        const updated = [...cardNumbers];
+        updated[index] = formatted;
+        setCardNumbers(updated);
+      };
 
-  const validateCardNumber = () => {
-    if (!selectedCard) return true;
-    const cleaned = cardNumber.replace(/\s/g, '');
-    const expected = cardNumberLengths[selectedCard];
-    return expected ? cleaned.length === expected : cleaned.length > 0;
-  };
+
+      const addCardNumberField = () => {
+        setCardNumbers([...cardNumbers, '']);
+      };
+
+
+      const removeCardNumberField = (index) => {
+  const updated = cardNumbers.filter((_, i) => i !== index);
+  setCardNumbers(updated);
+};
+
+
+const validateCardNumbers = () => {
+  return cardNumbers.every(num => num.trim() !== '');
+};
+
 
   // image pickers
-  const pickImage = async () => {
-    try {
-      const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!granted) {
-        return Alert.alert('Permission Required', 'Need gallery access to upload image.');
-      }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
-      });
-      if (!result.canceled && result.assets && result.assets[0]) {
-        setCardImage(result.assets[0]);
-        // Clear image error when image is selected
-        if (errors.image) {
-          setErrors(prev => ({ ...prev, image: undefined }));
-        }
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to pick image from gallery.');
+  // const pickImage = async () => {
+  //   const result = await ImagePicker.launchImageLibraryAsync({
+  //     mediaTypes: ImagePicker.MediaTypeOptions.Images,
+  //     allowsEditing: true,
+  //     quality: 0.7,
+  //   });
+  //
+  //   if (!result.canceled && result.assets && result.assets[0]) {
+  //     setCardImages([...cardImages, result.assets[0]]);
+  //   }
+  // };
+  //
+  // const takePhoto = async () => {
+  //   const { status } = await ImagePicker.requestCameraPermissionsAsync();
+  //   if (status !== 'granted') {
+  //     Alert.alert('Permission Denied', 'Camera access is required to take photos.');
+  //     return;
+  //   }
+  //
+  //   const result = await ImagePicker.launchCameraAsync({
+  //     allowsEditing: true,
+  //     quality: 0.7,
+  //   });
+  //
+  //   if (!result.canceled && result.assets && result.assets[0]) {
+  //     setCardImages([...cardImages, result.assets[0]]);
+  //   }
+  // };
+
+  // single unified function to pick or take a photo
+  const addImage = async (pickerFunc) => {
+    const result = await pickerFunc();
+    if (!result.canceled && result.assets && result.assets[0]) {
+      setCardImages([...cardImages, result.assets[0]]);
     }
   };
 
-  const takePhoto = async () => {
-    try {
-      const { granted } = await ImagePicker.requestCameraPermissionsAsync();
-      if (!granted) {
-        return Alert.alert('Permission Required', 'Need camera access to take photo.');
-      }
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
-      });
-      if (!result.canceled && result.assets && result.assets[0]) {
-        setCardImage(result.assets[0]);
-        // Clear image error when image is taken
-        if (errors.image) {
-          setErrors(prev => ({ ...prev, image: undefined }));
-        }
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to take photo.');
-    }
-  };
+  // gallery picker
+  const pickImage = () =>
+    ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
 
+  // camera picker
+  const takePhoto = () =>
+    ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.7,
+    });
+
+  // show alert to choose source
   const showImageOptions = () =>
     Alert.alert('Add Card Image', 'Choose an option', [
-      { text: 'Camera', onPress: takePhoto },
-      { text: 'Gallery', onPress: pickImage },
+      { text: 'Camera', onPress: () => addImage(takePhoto) },
+      { text: 'Gallery', onPress: () => addImage(pickImage) },
       { text: 'Cancel', style: 'cancel' },
     ]);
 
-  const removeImage = () => setCardImage(null);
+  // remove image
+  const removeImage = (index) => {
+    setCardImages(cardImages.filter((_, i) => i !== index));
+  };
+
+
+
 
   // Handle card type selection
   const handleCardTypeSelection = (type) => {
     setSelectedCard(type);
     setCurrentCurrency(cardCurrencies[type] || 'USD');
-    setCardNumber(''); // Reset card number when type changes
+    setCardNumbers(['']);// Reset card number when type changes
     // Clear related errors
-    setErrors(prev => ({ 
-      ...prev, 
-      card: undefined, 
-      cardNumber: undefined 
+    setErrors(prev => ({
+      ...prev,
+      card: undefined,
+      cardNumber: undefined
     }));
   };
 
@@ -225,40 +310,27 @@ const [userDescription, setUserDescription] = useState('');
   // form validation
   const validateForm = () => {
     const errs = {};
-    
+
     if (!selectedCard) {
-      errs.card = 'Please select a gift card type';
+      errs.selectedCard = 'Please select a card type';
     }
-    
+
+    if (cardNumbers.length === 0 || cardNumbers.some((num) => !num.trim())) {
+      errs.cardNumber = 'Please enter at least one card number';
+    } else if (!validateCardNumbers()) {
+  errs.cardNumber = `Please enter valid card numbers`;
+}
+
     if (!cardAmount) {
-      errs.amount = 'Please enter card amount';
-    } else {
-      const amount = parseFloat(cardAmount);
-      const currency = getCurrentCurrency();
-      if (isNaN(amount)) {
-        errs.amount = 'Please enter a valid amount';
-      } else if (amount < 10) {
-        errs.amount = `Minimum amount is ${currency} 10`;
-      } else if (amount > 500) {
-        errs.amount = `Maximum amount is ${currency} 500`;
-      }
+      errs.cardAmount = 'Please enter card amount';
+    } else if (isNaN(cardAmount) || parseFloat(cardAmount) <= 0) {
+      errs.cardAmount = 'Enter a valid positive amount';
     }
 
-    if (!cardNumber) {
-      errs.cardNumber = 'Please enter card number';
-    } else if (!validateCardNumber()) {
-      const len = cardNumberLengths[selectedCard];
-      if (len) {
-        errs.cardNumber = `${selectedCard} number must be ${len} digits`;
-      } else {
-        errs.cardNumber = 'Please enter a valid card number';
-      }
+    if (cardImages.length === 0) {
+      errs.image = 'Please upload at least one image';
     }
 
-    if (!cardImage) {
-      errs.image = 'Please upload a clear image';
-    }
-    
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -266,7 +338,8 @@ const [userDescription, setUserDescription] = useState('');
 
 
 // Alternative version without Alert (if you prefer immediate navigation)
-const handlePurchase  = async () => {
+const handlePurchase = async () => {
+console.log('Button clicked');
   if (!validateForm()) return;
 
   setIsLoading(true);
@@ -283,30 +356,52 @@ const handlePurchase  = async () => {
     formData.append('type', selectedCard);
     formData.append('amount', cardAmount);
     formData.append('currency', getCurrentCurrency());
-    formData.append('cardNumber', cardNumber);
-    formData.append('ngnAmount', ngnAmount);
+    formData.append('ngnAmount', parseFloat(ngnAmount.replace(/,/g, '')));
     formData.append('exchangeRate', cardExchangeRates[selectedCard]);
     formData.append('user', storedUserId);
     formData.append('userDescription', userDescription);
+    // Append payment info
+formData.append('paymentMethod', paymentMethod);
 
-    // Append image file
-    if (cardImage && cardImage.uri) {
-      const fileUri = cardImage.uri;
-      const fileName = fileUri.split('/').pop();
-      const fileType = cardImage.type || 'image/jpeg';
+if (paymentMethod === 'bank') {
+  formData.append('bankName', bankDetails.bankName);
+  formData.append('accountName', bankDetails.accountName);
+  formData.append('accountNumber', bankDetails.accountNumber);
+} else if (paymentMethod === 'usdt') {
+  if (!walletAddress.trim()) {
+    Alert.alert('Error', 'Please enter your USDT wallet address');
+    setIsLoading(false);
+    return;
+  }
+  formData.append('walletAddress', walletAddress.trim());
+}
 
-      formData.append('image', {
+    // Append card numbers as array
+    formData.append('cardNumbers', JSON.stringify(cardNumbers));
+
+
+    // Append images as array
+    if (cardImages.length > 0) {
+    cardImages.forEach((img) => {
+      const fileUri = img.uri;
+      const fileName = img.fileName || fileUri.split("/").pop();
+      const fileType = img.type || "image/jpeg";
+
+      formData.append("images", {
         uri: fileUri,
         name: fileName,
         type: fileType,
       });
-    } else {
-      throw new Error('Image is required.');
-    }
+    });
+  } else {
+    throw new Error("At least one image is required.");
+  }
+
+
 
     // Send to server
     const response = await axios.post(
-      'https://trader-pmqb.onrender.com/api/gift-cards/create',
+      'https://trader-sr5j-0k7o.onrender.com/api/gift-cards/create',
       formData,
       {
         headers: {
@@ -317,7 +412,6 @@ const handlePurchase  = async () => {
 
     const createdCardId = response?.data?.giftCard?._id;
 
-    
     if (!createdCardId) {
       console.error('No card ID found in response:', response.data);
       throw new Error('Card created but ID not found in response');
@@ -325,8 +419,8 @@ const handlePurchase  = async () => {
 
     // Reset form
     setCardAmount('');
-    setCardNumber('');
-    setCardImage(null);
+    setCardNumbers(['']);  // reset to one empty input
+    setCardImages([]);     // reset to no images
     setNgnAmount('0');
     setErrors({});
 
@@ -339,7 +433,7 @@ const handlePurchase  = async () => {
     // Navigate directly to success screen
     router.push({
       pathname: '/success/successScreen',
-      params: { 
+      params: {
         id: createdCardId,
         amount: ngnAmount,
         cardType: selectedCard,
@@ -350,15 +444,15 @@ const handlePurchase  = async () => {
 
   } catch (error) {
     console.error('Gift card purchase error:', error.response?.data || error.message);
-    
+
     let errorMessage = 'Failed to process purchase. Please try again.';
-    
+
     if (error.response?.data?.message) {
       errorMessage = error.response.data.message;
     } else if (error.message) {
       errorMessage = error.message;
     }
-    
+
     Alert.alert('Error', errorMessage);
   } finally {
     setIsLoading(false);
@@ -448,33 +542,44 @@ const handlePurchase  = async () => {
 
           {/* Card Number Input */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>
-              Card Number *
-              {cardNumberLengths[selectedCard] && (
-                <Text style={styles.labelNote}>
-                  ({cardNumberLengths[selectedCard]} digits)
-                </Text>
-              )}
-            </Text>
-            <TextInput
-              style={[styles.input, errors.cardNumber && styles.inputError]}
-              value={cardNumber}
-              onChangeText={handleCardNumberChange}
-              placeholder={
-                selectedCard ? `Enter ${selectedCard} number` : 'Select card type first'
-              }
-              keyboardType="default"
-              placeholderTextColor="#9ca3af"
-              autoCapitalize="characters"
-              maxLength={
-                cardNumberLengths[selectedCard]
-                  ? cardNumberLengths[selectedCard] + Math.floor(cardNumberLengths[selectedCard] / 4)
-                  : 50
-              }
-              editable={!!selectedCard}
-            />
-            {errors.cardNumber && <Text style={styles.errorText}>{errors.cardNumber}</Text>}
-          </View>
+    <Text style={styles.label}>
+      Card Numbers *
+    </Text>
+
+    {cardNumbers.map((num, index) => (
+      <View key={index} style={{ marginBottom: 8 }}>
+        <TextInput
+          style={[styles.input, errors.cardNumber && styles.inputError]}
+          value={num}
+          onChangeText={(txt) => handleCardNumberChange(txt, index)}
+          placeholder={
+            selectedCard
+              ? `Enter ${selectedCard} number ${index + 1}`
+              : 'Select card type first'
+          }
+          keyboardType="default"
+          placeholderTextColor="#9ca3af"
+          autoCapitalize="characters"
+          editable={!!selectedCard}
+        />
+
+        {/* Remove button (only for extra fields) */}
+        {index > 0 && (
+          <TouchableOpacity onPress={() => removeCardNumberField(index)}>
+            <Text style={{ color: 'red', fontSize: 12 }}>Remove</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    ))}
+
+    {/* Add another number */}
+    <TouchableOpacity onPress={addCardNumberField}>
+      <Text style={{ color: 'blue', marginTop: 5 }}>+ Add another card number</Text>
+    </TouchableOpacity>
+
+    {errors.cardNumber && <Text style={styles.errorText}>{errors.cardNumber}</Text>}
+  </View>
+
 
 
           {/* User Description Input */}
@@ -492,43 +597,123 @@ const handlePurchase  = async () => {
 </View>
 
 
+
+
+
+<View style={styles.inputContainer}>
+<Text style={styles.label}>Payment Method *</Text>
+<View style={{ flexDirection: 'row', marginTop: 8 }}>
+{['bank', 'usdt'].map((method) => (
+<TouchableOpacity
+  key={method}
+  style={[
+    styles.paymentButton,
+    paymentMethod === method && styles.paymentButtonActive,
+  ]}
+  onPress={() => setPaymentMethod(method)}
+>
+  <Text
+    style={[
+      styles.paymentText,
+      paymentMethod === method && styles.paymentTextActive,
+    ]}
+  >
+    {method.toUpperCase()}
+  </Text>
+</TouchableOpacity>
+))}
+</View>
+</View>
+
+
+{paymentMethod === 'bank' ? (
+<View style={styles.inputContainer}>
+<Text style={styles.label}>Bank Details</Text>
+<Text style={styles.infoText}>
+Bank: {bankDetails.bankName}{"\n"}
+Account Name: {bankDetails.accountName}{"\n"}
+Account Number: {bankDetails.accountNumber}
+</Text>
+</View>
+) : (
+<View style={styles.inputContainer}>
+<Text style={styles.label}>USDT Wallet Address *</Text>
+<TextInput
+style={styles.input}
+value={walletAddress}
+onChangeText={setWalletAddress}
+placeholder="Enter USDT wallet address"
+placeholderTextColor="#9ca3af"
+autoCapitalize="none"
+/>
+</View>
+)}
+
+
+
+
           {/* Card Image Upload */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Card Image *</Text>
-            <Text style={styles.imageNote}>
-              Upload a clear photo of your gift card (front side)
-            </Text>
-            {cardImage ? (
-              <View style={styles.imagePreviewContainer}>
-                <Image source={{ uri: cardImage.uri }} style={styles.imagePreview} />
-                <TouchableOpacity style={styles.removeImageButton} onPress={removeImage}>
-                  <Text style={styles.removeImageText}>×</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity
-                style={[styles.imageUploadButton, errors.image && styles.imageUploadButtonError]}
-                onPress={showImageOptions}
-              >
-                <Text style={styles.imageUploadIcon}>📷</Text>
-                <Text style={styles.imageUploadText}>Tap to add image</Text>
-                <Text style={styles.imageUploadSubtext}>Camera or Gallery</Text>
-              </TouchableOpacity>
-            )}
-            {errors.image && <Text style={styles.errorText}>{errors.image}</Text>}
+      <Text style={styles.label}>Card Images *</Text>
+      <Text style={styles.imageNote}>
+        Upload clear photos of your gift card (front / back if required)
+      </Text>
+
+      <View style={styles.imageList}>
+        {cardImages.map((img, index) => (
+          <View key={index} style={styles.imagePreviewContainer}>
+            <Image source={{ uri: img.uri }} style={styles.imagePreview} />
+            <TouchableOpacity
+              style={styles.removeImageButton}
+              onPress={() => removeImage(index)}
+            >
+              <Text style={styles.removeImageText}>×</Text>
+            </TouchableOpacity>
           </View>
+        ))}
+      </View>
+
+
+
+
+      {/* Add button (always available) */}
+      <TouchableOpacity
+        style={[
+          styles.imageUploadButton,
+          errors.image && styles.imageUploadButtonError,
+        ]}
+        onPress={showImageOptions}
+      >
+        <Text style={styles.imageUploadIcon}>📷</Text>
+        <Text style={styles.imageUploadText}>Tap to add another image</Text>
+        <Text style={styles.imageUploadSubtext}>Camera or Gallery</Text>
+      </TouchableOpacity>
+
+      {errors.image && <Text style={styles.errorText}>{errors.image}</Text>}
+    </View>
+
 
           {/* NGN Amount Display */}
           <View style={styles.conversionContainer}>
             <View style={styles.conversionHeader}>
               <Text style={styles.conversionLabel}>You will receive:</Text>
-              <Text style={styles.ngnAmount}>₦{ngnAmount}</Text>
+              <Text style={styles.amountText}>
+    {paymentMethod === 'usdt'
+      ? `${ngnAmount} USDT`
+      : `₦${ngnAmount}`}
+  </Text>
+
             </View>
             {selectedCard && cardAmount && (
-              <Text style={styles.conversionRate}>
-                Rate: ₦{cardExchangeRates[selectedCard]} per {getCurrentCurrency()}
-              </Text>
-            )}
+    <Text style={styles.conversionRate}>
+      {paymentMethod === 'usdt'
+        ? `Rate: ${cryptoRates['USDT']?.toLocaleString() || '...'} NGN = 1 USDT`
+        : `Rate: ₦${cardExchangeRates[selectedCard]} per ${getCurrentCurrency()}`}
+    </Text>
+  )}
+
+
+
           </View>
 
           {/* Purchase Button */}
@@ -560,7 +745,7 @@ const handlePurchase  = async () => {
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1, 
+        flex: 1,
         backgroundColor: 'white',
     },
     keyboardView: {
@@ -824,6 +1009,30 @@ const styles = StyleSheet.create({
         marginTop: height * 0.005,
         fontWeight: '500',
     },
+    paymentButton: {
+  flex: 1,
+  paddingVertical: 10,
+  borderWidth: 1.5,
+  borderColor: '#e5e7eb',
+  borderRadius: 12,
+  alignItems: 'center',
+  marginRight: 10,
+  backgroundColor: '#f9fafb',
+},
+paymentButtonActive: {
+  borderColor: 'black',
+  backgroundColor: '#eef2ff',
+},
+paymentText: {
+  fontSize: width * 0.035,
+  color: '#6b7280',
+  fontWeight: '500',
+},
+paymentTextActive: {
+  color: 'black',
+  fontWeight: '600',
+},
+
 });
 
 export default GiftCardPurchaseForm;

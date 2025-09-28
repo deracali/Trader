@@ -6,6 +6,16 @@
   <title>Gift Cards Admin Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+  // Check if adminToken exists
+  const adminToken = localStorage.getItem('adminToken');
+
+  if (!adminToken) {
+    // Redirect to sign-in page if not logged in
+    window.location.href = 'https://cardzip-admin.netlify.app/signin.html';
+  }
+</script>
+
   <style>
     body { font-family: sans-serif; }
     .tab-button.active { border-bottom-color: #3B82F6; color: #3B82F6; }
@@ -17,12 +27,16 @@
     <div class="max-w-7xl mx-auto px-4 flex justify-between items-center py-4">
       <h1 class="text-2xl font-bold text-gray-900">Gift Cards Admin Dashboard</h1>
       <div class="flex items-center space-x-4">
-        <!-- <div class="relative">
+        <div class="relative">
           <i data-lucide="bell" class="w-6 h-6 text-gray-600 cursor-pointer" id="notif-icon"></i>
           <span id="notif-count" class="hidden absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>
-        </div> -->
+        </div>
         <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold"><a href="form.html">C</a></div>
         <div class=""><a href="allcards.html">Requests</a></div>
+        <button id="logoutButton" class="btn-logout">
+  Logout
+</button>
+
         <div class=""><a href="crypto.html">Crypto</a></div>
       </div>
     </div>
@@ -51,10 +65,10 @@
 
 async function loadUsers() {
   try {
-    const res = await fetch('https://trader-sr5j.onrender.com/api/users/get')
+    const res = await fetch('https://trader-sr5j-0k7o.onrender.com/api/users/get')
     if (!res.ok) throw new Error(`Server returned ${res.status}`)
     const data = await res.json()
-
+    renderOverview();
     // normalize to the shape our table now expects
     users = data.map(u => ({
       name:          u.name,
@@ -116,7 +130,7 @@ loadUsers()
 
 
 
-const API_BASE = 'https://trader-sr5j.onrender.com/api/gift-cards';
+const API_BASE = 'https://trader-sr5j-0k7o.onrender.com/api/gift-cards';
 
 // ====== In-Memory Store ======
 let giftCards = [];
@@ -130,44 +144,62 @@ async function loadGiftCards() {
     const payload = await res.json();
     const arr = Array.isArray(payload.data) ? payload.data : [];
 
-    console.log("All cards from server:", arr);
 
-  giftCards = arr.map(gc => {
-  const bank = gc.bankDetails || {};
-  const referrerBank = gc.referrerBankDetails || {};
+ renderOverview();
+    giftCards = arr.map(gc => {
+      const bank = gc.bankDetails || {};
+      const referrerBank = gc.referrerBankDetails || {};
 
-  return {
-    id: gc._id,
-    type: gc.type,
-    amount: gc.amount,
-    currency: gc.currency,
-    cardNumber: gc.cardNumber,
-    imageUrl: gc.imageUrl,
-    ngnAmount: gc.ngnAmount,
-    exchangeRate: gc.exchangeRate,
-    paymentMethod: gc.paymentMethod || '',               // ✅ add this
-    cryptoPayout: gc.cryptoPayout || '',                 // ✅ add this
-    walletAddress: gc.walletAddress || '',               // ✅ add this
-    user: typeof gc.user === 'object' ? gc.user?.name || '' : gc.user || '',
-    status: (gc.status || '').toLowerCase().trim(),
-    userDescription: gc.userDescription || '',
-    companyFeedback: gc.companyFeedback || '',
-    read: gc.read,
-    readCount: gc.readCount,
-     phoneNumber: gc.phoneNumber || '',
-    createdAt: new Date(gc.createdAt).toLocaleDateString(),
-    bankDetails: {
-      bankName: bank.bankName || '',
-      accountName: bank.accountName || '',
-      accountNumber: bank.accountNumber || ''
-    },
-    referrerBankDetails: {   // Use referrerBank here
-      bankName: referrerBank.bankName || '',
-      accountName: referrerBank.accountName || '',
-      accountNumber: referrerBank.accountNumber || ''
-    }
-  };
-});
+      // Normalize cardNumbers: could be ['abc'] or [{ type: 'abc'}] or single string
+      let cardNumbers = [];
+      if (Array.isArray(gc.cardNumbers)) {
+        cardNumbers = gc.cardNumbers.map(n => (typeof n === 'string' ? n : (n.type || n.number || String(n))));
+      } else if (typeof gc.cardNumbers === 'string' && gc.cardNumbers.trim()) {
+        cardNumbers = [gc.cardNumbers];
+      } else if (gc.cardNumber) {
+        // fallback single field
+        cardNumbers = [gc.cardNumber];
+      }
+
+      // Normalize imageUrls: backend might return imageUrls (array) or imageUrl (single)
+      let imageUrls = [];
+      if (Array.isArray(gc.imageUrls)) imageUrls = gc.imageUrls.slice();
+      else if (Array.isArray(gc.imageUrl)) imageUrls = gc.imageUrl.slice();
+      else if (typeof gc.imageUrls === 'string' && gc.imageUrls.trim()) imageUrls = [gc.imageUrls];
+      else if (typeof gc.imageUrl === 'string' && gc.imageUrl.trim()) imageUrls = [gc.imageUrl];
+
+      return {
+        id: gc._id,
+        type: gc.type,
+        amount: gc.amount,
+        currency: gc.currency,
+        cardNumbers,            // normalized array of strings
+        imageUrls,              // normalized array of urls
+        ngnAmount: gc.ngnAmount,
+        exchangeRate: gc.exchangeRate,
+        paymentMethod: gc.paymentMethod || '',
+        cryptoPayout: gc.cryptoPayout || '',
+        walletAddress: gc.walletAddress || '',
+        user: typeof gc.user === 'object' ? gc.user?.name || '' : gc.user || '',
+        status: (gc.status || '').toLowerCase().trim(),
+        userDescription: gc.userDescription || '',
+        companyFeedback: gc.companyFeedback || '',
+        read: gc.read,
+        readCount: gc.readCount || 0,
+        phoneNumber: gc.phoneNumber || '',
+        createdAt: gc.createdAt ? new Date(gc.createdAt).toLocaleString() : '—',
+        bankDetails: {
+          bankName: bank.bankName || '',
+          accountName: bank.accountName || '',
+          accountNumber: bank.accountNumber || ''
+        },
+        referrerBankDetails: {
+          bankName: referrerBank.bankName || '',
+          accountName: referrerBank.accountName || '',
+          accountNumber: referrerBank.accountNumber || ''
+        }
+      };
+    });
 
     renderCards();
   } catch (err) {
@@ -302,10 +334,10 @@ function renderCards() {
       ` : '';
 
 
-      const referrerAmount = (typeof c.ngnAmount === 'number') ? (c.ngnAmount * 0.03) : 0;
+      const referrerAmount = (typeof c.ngnAmount === 'number') ? (c.ngnAmount * 0.01) : 0;
 const referrerAmountHTML = `
   <div class="mb-4 text-sm text-gray-700">
-    <strong>Referrer Amount (5% NGN):</strong> ₦${referrerAmount.toLocaleString()}
+    <strong>Referrer Amount (1% NGN):</strong> ₦${referrerAmount.toLocaleString()}
   </div>
 `;
 
@@ -322,7 +354,15 @@ const referrerAmountHTML = `
            <div class="grid grid-cols-2 gap-4 mb-4 text-sm">
   <div><span class="text-gray-600">Amount:</span> <span class="font-medium text-green-600">$${c.amount ?? '0'} ${c.currency ?? ''}</span></div>
   <div><span class="text-gray-600">NGN Amount:</span> <span class="font-medium">₦${(typeof c.ngnAmount === 'number' ? c.ngnAmount.toLocaleString() : '0')}</span></div>
-  <div><span class="text-gray-600">Card #:</span> <span class="font-medium">${c.cardNumber ?? '—'}</span></div>
+  <div><span class="text-gray-600">Card Numbers:</span>
+  <span class="font-medium">
+    ${Array.isArray(c.cardNumbers) && c.cardNumbers.length
+      ? c.cardNumbers.join(', ')
+      : '—'}
+  </span>
+
+</div>
+
   <div><span class="text-gray-600">Rate:</span> <span class="font-medium">₦${(typeof c.exchangeRate === 'number' ? c.exchangeRate.toLocaleString() : c.exchangeRate ?? '—')}</span></div>
   <div><span class="text-gray-600">User:</span> <span class="font-medium">${userName}</span></div>
   <div><span class="text-gray-600">Created:</span> <span class="font-medium">${c.createdAt ?? '—'}</span></div>
@@ -359,20 +399,22 @@ ${referrerAmountHTML}
               >Update Feedback</button>
             </div>
 
-            <div class="flex items-center mb-4">
-              <img
-                src="${c.imageUrl ?? ''}"
-                alt="${c.type} Gift Card"
-                class="w-16 h-16 object-contain rounded mr-4 border"
-              />
-              <button
-                onclick="copyImageToClipboard('${c.imageUrl ?? ''}')"
-                class="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
-                title="Copy image"
-              >
-                <i data-lucide="copy" class="w-5 h-5"></i>
-              </button>
-            </div>
+            <div class="flex space-x-2 mb-4">
+    ${Array.isArray(c.imageUrls) && c.imageUrls.length
+      ? c.imageUrls.map(url => `
+        <div class="relative">
+          <img src="${url}" alt="${c.type} Gift Card" class="w-16 h-16 object-contain rounded border" />
+          <button
+            onclick="copyImageToClipboard('${url}')"
+            class="absolute top-0 right-0 p-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+            title="Copy image"
+          >
+            <i data-lucide="copy" class="w-3 h-3"></i>
+          </button>
+        </div>`).join('')
+      : `<span class="text-gray-400">No images</span>`}
+  </div>
+
 
             <div class="flex justify-between items-center pt-4 border-t">
               <div class="flex space-x-2">
@@ -432,30 +474,64 @@ loadGiftCards();
     //   }
     // }
 
-function renderOverview() {
+  function renderOverview() {
   const totalUsers = users.length;
   const totalCards = giftCards.length;
 
-  // Filter successful cards and only include those with valid ngnAmount numbers
+  // Total Amount Traded (sum of all amounts where status = successful)
+  const totalAmountTraded = giftCards
+    .filter(c => c.status?.toLowerCase().trim() === 'successful' && typeof c.amount === 'number')
+    .reduce((sum, c) => sum + c.amount, 0);
+
+  // Revenue = amount * 40
   const totalRevenue = giftCards
-    .filter(c => c.status?.toLowerCase().trim() === 'successful' && typeof c.ngnAmount === 'number')
-    .reduce((sum, c) => sum + c.ngnAmount, 0);
+    .filter(c => c.status?.toLowerCase().trim() === 'successful' && typeof c.amount === 'number')
+    .reduce((sum, c) => sum + (c.amount * 40), 0);
+
+  // Daily Revenue
+  const today = new Date();
+  const dailyRevenue = giftCards
+    .filter(c => c.status?.toLowerCase().trim() === 'successful' && typeof c.amount === 'number' &&
+      new Date(c.createdAt).toDateString() === today.toDateString())
+    .reduce((sum, c) => sum + (c.amount * 40), 0);
+
+  // Weekly Revenue
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - today.getDay()); // start of week (Sunday)
+  const weeklyRevenue = giftCards
+    .filter(c => c.status?.toLowerCase().trim() === 'successful' && typeof c.amount === 'number' &&
+      new Date(c.createdAt) >= weekStart)
+    .reduce((sum, c) => sum + (c.amount * 40), 0);
+
+  // Monthly Revenue
+  const monthlyRevenue = giftCards
+    .filter(c => c.status?.toLowerCase().trim() === 'successful' && typeof c.amount === 'number' &&
+      new Date(c.createdAt).getMonth() === today.getMonth() &&
+      new Date(c.createdAt).getFullYear() === today.getFullYear())
+    .reduce((sum, c) => sum + (c.amount * 40), 0);
 
   const pendingCards = giftCards.filter(c => c.status?.toLowerCase().trim() === 'pending').length;
   const latest = giftCards.slice(0, 3);
 
   tabContent.innerHTML = `
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
       ${statCard('users','Total Users', totalUsers,'+12% this month','#3B82F6')}
       ${statCard('credit-card','Gift Cards', totalCards,'+8% this week','#10B981')}
+      ${statCard('trending-up','Total Traded','$' + (totalAmountTraded ? totalAmountTraded.toLocaleString() : '0'),'All-time','#6366F1')}
       ${statCard('dollar-sign','Total Revenue','₦' + (totalRevenue ? totalRevenue.toLocaleString() : '0'),'+15% this month','#F59E0B')}
       ${statCard('clock','Pending Cards', pendingCards,'Awaiting review','#EF4444')}
     </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      ${statCard('calendar','Daily Revenue','₦' + dailyRevenue.toLocaleString(),'Today','#3B82F6')}
+      ${statCard('calendar','Weekly Revenue','₦' + weeklyRevenue.toLocaleString(),'This week','#10B981')}
+      ${statCard('calendar','Monthly Revenue','₦' + monthlyRevenue.toLocaleString(),'This month','#F59E0B')}
+    </div>
+
     <div class="bg-white rounded-lg shadow-md p-6">
       <h2 class="text-lg font-semibold text-gray-900 mb-4">Latest Gift Cards</h2>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         ${latest.map(card => {
-          // Use card.user if truthy, otherwise fallback to bankDetails.accountName or '—'
           const userName = card.user || (card.bankDetails?.accountName) || '—';
           return `
             <div class="border rounded-lg p-4 hover:shadow-md">
@@ -466,7 +542,7 @@ function renderOverview() {
               <p class="text-sm text-gray-600 mb-2">User: ${userName}</p>
               <div class="flex justify-between items-center mb-2">
                 <span class="text-lg font-bold text-green-600">$${card.amount ?? '0'}</span>
-                <span class="text-sm text-gray-500">₦${(typeof card.ngnAmount === 'number' ? card.ngnAmount.toLocaleString() : '0')}</span>
+                <span class="text-sm text-gray-500">₦${(typeof card.amount === 'number' ? (card.amount * 40).toLocaleString() : '0')}</span>
               </div>
               <p class="text-xs text-gray-500">${card.createdAt}</p>
             </div>
@@ -477,6 +553,12 @@ function renderOverview() {
 
   lucide.createIcons();
 }
+
+
+setInterval(() => {
+  loadUsers();
+  loadGiftCards();
+}, 10000);
 
     // function renderUsers() {
     //   tabContent.innerHTML = `
@@ -644,5 +726,15 @@ function renderOverview() {
     document.getElementById('notif-count').classList.remove('hidden');
     renderOverview();
   </script>
+
+  <script>
+  document.getElementById('logoutButton').addEventListener('click', () => {
+  // Remove admin token from localStorage
+  localStorage.removeItem('adminToken');
+
+  // Redirect to signin page
+  window.location.href = 'https://cardzip-admin.netlify.app/signin.html';
+});
+</script>
 </body>
 </html>

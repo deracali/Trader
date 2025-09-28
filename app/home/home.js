@@ -242,7 +242,7 @@ const emojiMap = {
  const [giftCards, setGiftCards] = useState([]);
 
  useEffect(() => {
-    fetch('https://trader-pmqb.onrender.com/api/cards/get')
+    fetch('https://trader-sr5j-0k7o.onrender.com/api/cards/get')
       .then(response => response.json())
       .then(result => {
         if (Array.isArray(result.data)) {
@@ -328,7 +328,7 @@ const emojiMap = {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="black" />
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        
+
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View>

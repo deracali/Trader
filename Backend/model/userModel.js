@@ -7,8 +7,12 @@ const userSchema = new mongoose.Schema({
   accountNumber: { type: String, trim: true },
   accountName: { type: String, trim: true },
   bankName: { type: String, trim: true },
-  referralCode: { type: String, unique: true }, // 👈 new field
-  referrer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
+  referralCode: { type: String, unique: true },
+  referrer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+
+  // Fields for forgot password
+  resetCode: { type: String },            // the code sent to the user
+  resetCodeExpires: { type: Date }, 
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);

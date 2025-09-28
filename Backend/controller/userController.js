@@ -194,3 +194,161 @@ export const deleteUser = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+
+
+export const sendResetCode = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Generate 6-digit numeric code
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const resetCodeExpires = Date.now() + 15 * 60 * 1000; // 15 minutes
+
+    user.resetCode = resetCode;
+    user.resetCodeExpires = resetCodeExpires;
+    await user.save();
+
+    // Configure email transporter
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS, // Gmail App Password if 2FA enabled
+      },
+    });
+
+    const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: user.email,
+    subject: 'Your Password Reset Code',
+    html: `
+    <html>
+    <head>
+      <style>
+        body {
+          font-family: "Poppins", sans-serif;
+          background-color: #f5f6fa;
+          margin: 0;
+          padding: 0;
+        }
+        .container {
+          max-width: 600px;
+          margin: 40px auto;
+          background: #ffffff;
+          border-radius: 10px;
+          box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+          overflow: hidden;
+        }
+        .header {
+          background-color: #95c2c2; /* theme color */
+          color: white;
+          text-align: center;
+          padding: 30px 20px;
+        }
+        .header h1 {
+          margin: 0;
+          font-size: 24px;
+        }
+        .content {
+          padding: 30px 20px;
+          color: #333333;
+        }
+        .content h2 {
+          color: #95c2c2;
+          font-size: 20px;
+          margin-bottom: 10px;
+        }
+        .code-box {
+          display: inline-block;
+          background: #f0f4ff;
+          color: #95c2c2;
+          font-size: 28px;
+          font-weight: bold;
+          padding: 15px 25px;
+          border-radius: 8px;
+          letter-spacing: 4px;
+          margin: 20px 0;
+        }
+        .footer {
+          background: #f5f6fa;
+          text-align: center;
+          padding: 20px;
+          font-size: 14px;
+          color: #777;
+        }
+        a.button {
+          display: inline-block;
+          padding: 12px 25px;
+          background-color: #95c2c2;
+          color: white !important;
+          text-decoration: none;
+          border-radius: 6px;
+          font-weight: 600;
+          margin-top: 20px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Cardzip</h1>
+        </div>
+        <div class="content">
+          <h2>Password Reset Request</h2>
+          <p>Hello ${user.name},</p>
+          <p>We received a request to reset your password. Use the code below to reset it. This code will expire in 15 minutes.</p>
+          <div class="code-box">${resetCode}</div>
+          <p>If you did not request a password reset, please ignore this email.</p>
+          <p>Thank you,<br>Cardzip Team</p>
+        </div>
+        <div class="footer">
+          &copy; 2025 Cardzip. All rights reserved.
+        </div>
+      </div>
+    </body>
+    </html>
+    `
+  };
+
+
+    await transporter.sendMail(mailOptions);
+
+    res.json({ message: 'Reset code sent to your email' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// 2️⃣ Verify code and reset password
+export const resetPasswordWithCode = async (req, res) => {
+  const { email, code, newPassword } = req.body;
+
+  try {
+    const user = await User.findOne({
+      email,
+      resetCode: code,
+      resetCodeExpires: { $gt: Date.now() }, // ensure code is not expired
+    });
+
+    if (!user) return res.status(400).json({ message: 'Invalid or expired code' });
+
+    // Hash the new password
+    user.password = await bcrypt.hash(newPassword, 10);
+
+    // Clear code and expiry
+    user.resetCode = undefined;
+    user.resetCodeExpires = undefined;
+
+    await user.save();
+
+    res.json({ message: 'Password reset successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message });
+  }
+};
