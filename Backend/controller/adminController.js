@@ -100,8 +100,6 @@ console.log('Reset code request body:', req.body);
       auth: {
         user: "chideracalistus1999@gmail.com", // your email
         pass: "loujzkmawbevpitz"
-        logger: true,
-        debug: true
       },
     });
 
