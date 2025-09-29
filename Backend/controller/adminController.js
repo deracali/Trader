@@ -82,7 +82,8 @@ export const updateAdmin = async (req, res) => {
 // 1️⃣ Send reset code to admin email
 export const sendAdminResetCode = async (req, res) => {
   const { email } = req.body;
-console.log('Reset code request body:', req.body);
+  console.log('Reset code request body:', req.body);
+
   try {
     const admin = await Admin.findOne({ email });
     if (!admin) return res.status(404).json({ message: 'Admin not found' });
@@ -95,19 +96,19 @@ console.log('Reset code request body:', req.body);
     admin.resetCodeExpires = resetCodeExpires;
     await admin.save();
 
-    // Send email
+    // ✅ Use Brevo SMTP instead of Gmail
     const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: false,
-  auth: {
-    user: "chideracalistus1999@gmail.com",
-    pass: "loujzkmawbevpitz" // app password
-  }
-});
+      host: "smtp-relay.brevo.com",
+      port: 587,
+      secure: false, // use TLS
+      auth: {
+         user: "9823d3001@smtp-brevo.com", // e.g. 9823d3001@smtp-brevo.com
+        pass: "qtHZhp4gMPTyRUvs", // your SMTP key qtHZhp4gMPTyRUvs
+      },
+    });
 
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: "chideracalistus1999@gmail.com", // must match your verified Brevo sender email
       to: admin.email,
       subject: 'Admin Password Reset Code',
       html: `
@@ -126,14 +127,15 @@ console.log('Reset code request body:', req.body);
     };
 
     await transporter.sendMail(mailOptions);
-
     res.json({ message: 'Reset code sent to admin email' });
+
   } catch (err) {
-    console.error(err);
+    console.error('Error sending reset code:', err);
     res.status(500).json({ message: err.message });
   }
 };
 
+// 2️⃣ Verify code and reset admin password
 // 2️⃣ Verify code and reset admin password
 export const resetAdminPasswordWithCode = async (req, res) => {
   const { email, code, newPassword } = req.body;
