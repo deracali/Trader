@@ -98,8 +98,10 @@ console.log('Reset code request body:', req.body);
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        user: "chideracalistus1999@gmail.com", // your email
+        pass: "loujzkmawbevpitz"
+        logger: true,
+        debug: true
       },
     });
 
