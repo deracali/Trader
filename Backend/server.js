@@ -22,7 +22,7 @@ app.use(express.json());
 // app.use(cors());
 const allowedOrigins = [
   "http://localhost:3000", // local dev
-  "https://your-frontend.netlify.app", // your deployed frontend
+  "https://cardzip-admin.netlify.app", // your deployed frontend
 ];
 
 app.use(
