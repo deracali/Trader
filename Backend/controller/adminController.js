@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
+import sgMail from "@sendgrid/mail";
 import Admin from '../model/adminModel.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
@@ -98,7 +99,7 @@ console.log('Reset code request body:', req.body);
     const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 465,
-  secure: true,
+  secure: false,
   auth: {
     user: "chideracalistus1999@gmail.com",
     pass: "loujzkmawbevpitz" // app password

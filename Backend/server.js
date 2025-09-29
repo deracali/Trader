@@ -19,7 +19,31 @@ const app = express();
 
 
 app.use(express.json());
-app.use(cors());
+// app.use(cors());
+const allowedOrigins = [
+  "http://localhost:3000", // local dev
+  "https://your-frontend.netlify.app", // your deployed frontend
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like Postman)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      } else {
+        return callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
+
+// ✅ Handle preflight requests
+app.options("*", cors());
 
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI, {
