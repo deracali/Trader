@@ -96,12 +96,14 @@ console.log('Reset code request body:', req.body);
 
     // Send email
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: "chideracalistus1999@gmail.com", // your email
-        pass: "loujzkmawbevpitz"
-      },
-    });
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
+  auth: {
+    user: "chideracalistus1999@gmail.com",
+    pass: "loujzkmawbevpitz" // app password
+  }
+});
 
     const mailOptions = {
       from: process.env.EMAIL_USER,
