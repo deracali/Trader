@@ -81,7 +81,7 @@ export const updateAdmin = async (req, res) => {
 // 1️⃣ Send reset code to admin email
 export const sendAdminResetCode = async (req, res) => {
   const { email } = req.body;
-
+console.log('Reset code request body:', req.body);
   try {
     const admin = await Admin.findOne({ email });
     if (!admin) return res.status(404).json({ message: 'Admin not found' });
