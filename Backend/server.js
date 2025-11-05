@@ -11,6 +11,7 @@ import userRouter from './route/userRouter.js';
 import './telegramBot.js';
 import { Expo } from 'expo-server-sdk';
 import fetch from 'node-fetch';
+import User from './model/userModel.js';
 
 
 dotenv.config();
@@ -93,52 +94,82 @@ app.post('/send-notification', async (req, res) => {
     let users = [];
 
     if (userId) {
-      // Send to one user
+      // 🔹 Send to one specific user
       const user = await User.findById(userId);
       if (!user || !user.pushTokens?.length)
         return res.status(404).json({ error: 'No tokens for this user' });
       users = [user];
     } else {
-      // Send to all users
-      users = await User.find({ pushTokens: { $exists: true, $ne: [] } });
+      // 🔹 Get all users who have at least one valid Expo token
+      const allUsers = await User.find({ pushTokens: { $exists: true, $ne: [] } });
+      users = allUsers.filter(
+        (u) =>
+          Array.isArray(u.pushTokens) &&
+          u.pushTokens.some((t) => Expo.isExpoPushToken(t))
+      );
       if (!users.length)
-        return res.status(404).json({ error: 'No users with registered tokens' });
+        return res.status(404).json({ error: 'No users with valid push tokens' });
     }
 
-    const messages = [];
+    console.log(
+      '📱 Sending to users:',
+      users.map((u) => ({
+        id: u._id,
+        tokens: u.pushTokens,
+      }))
+    );
 
+    // ✅ Collect all unique valid tokens
+    const uniqueTokens = new Set();
     for (const user of users) {
       for (const token of user.pushTokens) {
-        if (!Expo.isExpoPushToken(token)) {
-          console.warn(`❌ Invalid Expo push token: ${token}`);
-          continue;
+        if (Expo.isExpoPushToken(token)) {
+          uniqueTokens.add(token);
         }
-
-        messages.push({
-          to: token,
-          sound: 'default',
-          title,
-          body,
-          data: { userId: user._id },
-        });
       }
     }
 
-    // ✅ Chunk + Send
-    const chunks = expo.chunkPushNotifications(messages);
+    if (!uniqueTokens.size) {
+      return res.status(404).json({ error: 'No valid Expo tokens to send to' });
+    }
+
+    // ✅ Group tokens by project
+    const projectGroups = {};
+    for (const token of uniqueTokens) {
+      const projectMatch = token.match(/\[(.*?)\]/);
+      const projectId = projectMatch ? projectMatch[1].split(':')[0] : 'unknown';
+      if (!projectGroups[projectId]) projectGroups[projectId] = [];
+      projectGroups[projectId].push(token);
+    }
+
     const tickets = [];
+    let sentCount = 0;
 
-    for (const chunk of chunks) {
-      try {
-        const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-        console.log('📨 Ticket chunk:', ticketChunk);
-        tickets.push(...ticketChunk);
-      } catch (error) {
-        console.error('❌ Error sending chunk:', error);
+    // ✅ Send per project group
+    for (const [projectId, tokens] of Object.entries(projectGroups)) {
+      console.log(`🚀 Sending ${tokens.length} notifications for project: ${projectId}`);
+
+      const messages = tokens.map((token) => ({
+        to: token,
+        sound: 'default',
+        title,
+        body,
+      }));
+
+      const chunks = expo.chunkPushNotifications(messages);
+      for (const chunk of chunks) {
+        try {
+          const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+          console.log('📨 Ticket chunk:', ticketChunk);
+          tickets.push(...ticketChunk);
+          sentCount += messages.length;
+        } catch (error) {
+          console.error(`❌ Error sending chunk for project ${projectId}:`, error);
+        }
       }
     }
 
-    res.json({ success: true, count: messages.length, tickets });
+    res.json({ success: true, count: sentCount, tickets });
   } catch (err) {
     console.error('Send notification error:', err);
     res.status(500).json({ error: 'Failed to send notification' });
