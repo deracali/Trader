@@ -79,10 +79,9 @@ export const updateAdmin = async (req, res) => {
 
 
 
-// 1️⃣ Send reset code to admin email
 export const sendAdminResetCode = async (req, res) => {
   const { email } = req.body;
-  console.log('Reset code request body:', req.body);
+  console.log('📩 Reset code request body:', req.body);
 
   try {
     const admin = await Admin.findOne({ email });
@@ -90,48 +89,42 @@ export const sendAdminResetCode = async (req, res) => {
 
     // Generate 6-digit code
     const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const resetCodeExpires = Date.now() + 15 * 60 * 1000; // 15 minutes
+    const resetCodeExpires = Date.now() + 15 * 60 * 1000;
 
     admin.resetCode = resetCode;
     admin.resetCodeExpires = resetCodeExpires;
     await admin.save();
 
-    // ✅ Use Brevo SMTP instead of Gmail
+    // Brevo transporter
+    console.log("🔧 Setting up transporter...");
     const transporter = nodemailer.createTransport({
       host: "smtp-relay.brevo.com",
       port: 587,
-      secure: false, // use TLS
+      secure: false,
       auth: {
-         user: "9823d3001@smtp-brevo.com", // e.g. 9823d3001@smtp-brevo.com
-        pass: "qtHZhp4gMPTyRUvs", // your SMTP key qtHZhp4gMPTyRUvs
+        user: "9823d3001@smtp-brevo.com",
+        pass: "qtHZhp4gMPTyRUvs",
       },
     });
 
     const mailOptions = {
-      from: "chideracalistus1999@gmail.com", // must match your verified Brevo sender email
+      from: "chideracalistus1999@gmail.com",
       to: admin.email,
       subject: 'Admin Password Reset Code',
-      html: `
-      <div style="font-family: Poppins, sans-serif; text-align:center; padding:30px; background:#f5f6fa;">
-        <div style="max-width:600px; margin: auto; background:#fff; padding:30px; border-radius:10px; box-shadow:0 4px 15px rgba(0,0,0,0.1);">
-          <h2 style="color:#2563EB;">Admin Password Reset</h2>
-          <p>Hello ${admin.name},</p>
-          <p>Use the code below to reset your password. It expires in 15 minutes.</p>
-          <div style="display:inline-block; background:#f0f4ff; color:#2563EB; font-size:28px; font-weight:bold; padding:15px 25px; border-radius:8px; letter-spacing:4px; margin:20px 0;">
-            ${resetCode}
-          </div>
-          <p>If you did not request a password reset, ignore this email.</p>
-        </div>
-      </div>
-      `,
+      text: `Your reset code is ${resetCode}`,
     };
 
+    console.log("📨 Sending mail to:", admin.email);
+
     await transporter.sendMail(mailOptions);
+
+    console.log("✅ Email sent successfully to", admin.email);
+
     res.json({ message: 'Reset code sent to admin email' });
 
   } catch (err) {
-    console.error('Error sending reset code:', err);
-    res.status(500).json({ message: err.message });
+    console.error("❌ FULL ERROR:", err);
+    res.status(500).json({ message: err.message || "Unknown error" });
   }
 };
 
