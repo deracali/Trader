@@ -139,6 +139,8 @@ export const updateUser = async (req, res) => {
   }
 };
 
+
+
 // Get a user by ID
 export const getUserById = async (req, res) => {
   try {
@@ -171,11 +173,15 @@ export const getUserById = async (req, res) => {
       nextLevel = 'Silver';
     }
 
+    // Count how many users were referred by this user
+    const referralCount = await User.countDocuments({ referrer: user._id });
+
     res.json({
       ...user.toObject(),
       memberLevel,
       progressPercent,
       nextLevel,
+      referralCount, // added here
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
