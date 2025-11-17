@@ -12,7 +12,7 @@ import './telegramBot.js';
 import { Expo } from 'expo-server-sdk';
 import fetch from 'node-fetch';
 import User from './model/userModel.js';
-
+import contactRoute from "./route/contactRouter.js"
 
 dotenv.config();
 
@@ -37,7 +37,7 @@ app.use('/api/admin', adminRoute);
 app.use('/api/cards', cardRoutes);
 app.use('/api/crypto-rate', CryptoRateRouter);
 app.use('/api/crypto', CryptoRouter);
-
+app.use("/api/contact", contactRoute);
 
 app.get('/', (req, res) => {
   res.send('User API is running...');
