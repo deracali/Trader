@@ -8,7 +8,7 @@ import cardRoutes from "./route/cardsRouter.js";
 import CryptoRateRouter from "./route/cryptoRateRouter.js";
 import CryptoRouter from "./route/cryptoRouter.js";
 import userRouter from './route/userRouter.js';
-import './telegramBot.js';
+// import './telegramBot.js';
 import { Expo } from 'expo-server-sdk';
 import fetch from 'node-fetch';
 import User from './model/userModel.js';
@@ -44,10 +44,10 @@ app.get('/', (req, res) => {
 });
 
 
-app.post("/webhook/telegram", (req, res) => {
-  console.log("Received Telegram update:", req.body);
-  res.sendStatus(200); // Respond with 200 to acknowledge
-});
+// app.post("/webhook/telegram", (req, res) => {
+//   console.log("Received Telegram update:", req.body);
+//   res.sendStatus(200); // Respond with 200 to acknowledge
+// });
 
 
 
@@ -150,11 +150,18 @@ app.post('/send-notification', async (req, res) => {
       console.log(`🚀 Sending ${tokens.length} notifications for project: ${projectId}`);
 
       const messages = tokens.map((token) => ({
-        to: token,
-        sound: 'default',
-        title,
-        body,
-      }));
+    to: token,
+    sound: 'default',
+    title,
+    body,
+    priority: 'high',          // ✅ ensures high priority delivery
+    channelId: 'default',      // ✅ must match Android channel
+    android: {                 // ✅ Android-specific options
+      channelId: 'default',
+      priority: 'max',
+    },
+  }));
+
 
       const chunks = expo.chunkPushNotifications(messages);
       for (const chunk of chunks) {

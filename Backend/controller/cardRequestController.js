@@ -2,6 +2,9 @@ import { v2 as cloudinary } from "cloudinary";
 import dotenv from 'dotenv';
 import GiftCard from "../model/cardRequestModel.js";
 import User from '../model/userModel.js';
+import redisClient from '../controller/redisClient.js';
+
+
 
 // Cloudinary Configuration
 dotenv.config();
@@ -236,7 +239,8 @@ export const updateGiftCard = async (req, res) => {
 export const getAllGiftCards = async (req, res) => {
   try {
     const giftCards = await GiftCard
-      .find()                      // get all cards
+      .find()
+      .limit(30)                // get all cards
       .sort({ createdAt: -1 })     // newest first
       .populate('user', 'name email'); // join user info
 
@@ -264,22 +268,27 @@ export const deleteAllGiftCards = async (req, res) => {
 
 
 
-
-
 export const getUserAchievements = async (req, res) => {
-   const { id } = req.params;
-  const userId = id;
-console.log('Route params:', req.params);
-console.log('All cards for user:', await GiftCard.find({ user: userId }));
-console.log('Sample cards in DB:', (await GiftCard.find().limit(3)).map(c => ({ id: c._id, user: c.user.toString(), status: c.status })));
+  const { id: userId } = req.params;
 
   try {
+    // 1️⃣ Check Redis cache first
+    const cacheKey = `user:${userId}:achievements`;
+    const cached = await redisClient.get(cacheKey);
+
+    if (cached) {
+      console.log('⚡ Returning achievements from Redis cache');
+      return res.json(JSON.parse(cached));
+    }
+
+    // 2️⃣ If not cached, fetch from DB
     const giftCards = await GiftCard.find({ user: userId, status: 'successful' }).sort({ createdAt: 1 });
     const user = await User.findById(userId);
 
     const achievements = [];
 
-   if (giftCards.length >= 1) {
+    // First Purchase
+    if (giftCards.length >= 1) {
       achievements.push({
         id: 1,
         title: 'First Purchase',
@@ -290,7 +299,6 @@ console.log('Sample cards in DB:', (await GiftCard.find().limit(3)).map(c => ({ 
       });
     }
 
-
     // Big Spender
     const totalSpent = giftCards.reduce((sum, gc) => sum + gc.amount, 0);
     if (totalSpent > 500) {
@@ -300,103 +308,54 @@ console.log('Sample cards in DB:', (await GiftCard.find().limit(3)).map(c => ({ 
         description: 'Spent over $500 on gift cards',
         icon: '💰',
         earned: true,
-        date: giftCards.find(gc => gc.amount >= 500)?.createdAt || giftCards[0].createdAt,
+        date: giftCards.find(gc => gc.amount >= 500)?.createdAt || giftCards[0]?.createdAt,
         color: '#10b981',
       });
     }
 
-    // Streak Master (7 consecutive days)
+    // Streak Master
     const dateSet = new Set(giftCards.map(gc => new Date(gc.createdAt).toDateString()));
-    let streak = 1;
-    let maxStreak = 1;
+    let streak = 1, maxStreak = 1;
     const sortedDates = Array.from(dateSet).map(d => new Date(d)).sort((a, b) => a - b);
-
     for (let i = 1; i < sortedDates.length; i++) {
       const diff = (sortedDates[i] - sortedDates[i - 1]) / (1000 * 3600 * 24);
-      if (diff === 1) {
-        streak++;
-        maxStreak = Math.max(maxStreak, streak);
-      } else {
-        streak = 1;
-      }
+      if (diff === 1) { streak++; maxStreak = Math.max(maxStreak, streak); } else { streak = 1; }
     }
+    if (maxStreak >= 7) achievements.push({ id: 3, title: 'Streak Master', description: 'Made purchases for 7 consecutive days', icon: '🔥', earned: true, color: '#f59e0b' });
 
-    if (maxStreak >= 7) {
-      achievements.push({
-        id: 3,
-        title: 'Streak Master',
-        description: 'Made purchases for 7 consecutive days',
-        icon: '🔥',
-        earned: true,
-        color: '#f59e0b',
-      });
-    }
-
-    // Category Explorer (10 unique types)
+    // Category Explorer
     const categorySet = new Set(giftCards.map(gc => gc.type));
     const categoryCount = categorySet.size;
+    achievements.push({
+      id: 4,
+      title: 'Category Explorer',
+      description: 'Purchased from 10 different categories',
+      icon: '🗺️',
+      earned: categoryCount >= 10,
+      progress: categoryCount < 10 ? categoryCount : undefined,
+      total: categoryCount < 10 ? 10 : undefined,
+      color: 'black',
+    });
 
-    if (categoryCount >= 10) {
-      achievements.push({
-        id: 4,
-        title: 'Category Explorer',
-        description: 'Purchased from 10 different categories',
-        icon: '🗺️',
-        earned: true,
-        color: 'black',
-      });
-    } else {
-      achievements.push({
-        id: 4,
-        title: 'Category Explorer',
-        description: 'Purchased from 10 different categories',
-        icon: '🗺️',
-        earned: false,
-        progress: categoryCount,
-        total: 10,
-        color: 'black',
-      });
-    }
-
-    // Loyalty Member (registered over 6 months ago)
+    // Loyalty Member
     const now = new Date();
-    const memberDurationInMonths =
-      user && user.createdAt ? (now - new Date(user.createdAt)) / (1000 * 3600 * 24 * 30) : 0;
+    const memberDurationInMonths = user?.createdAt ? (now - new Date(user.createdAt)) / (1000 * 3600 * 24 * 30) : 0;
+    if (memberDurationInMonths >= 6) achievements.push({ id: 5, title: 'Loyalty Member', description: 'Been a member for over 6 months', icon: '👑', earned: true, date: user.createdAt, color: '#f97316' });
 
-    if (memberDurationInMonths >= 6) {
-      achievements.push({
-        id: 5,
-        title: 'Loyalty Member',
-        description: 'Been a member for over 6 months',
-        icon: '👑',
-        earned: true,
-        date: user.createdAt,
-        color: '#f97316',
-      });
-    }
+    // Gift Master
+    achievements.push({
+      id: 6,
+      title: 'Gift Master',
+      description: 'Purchased 50 gift cards',
+      icon: '🎁',
+      earned: giftCards.length >= 50,
+      progress: giftCards.length < 50 ? giftCards.length : undefined,
+      total: giftCards.length < 50 ? 50 : undefined,
+      color: '#ec4899',
+    });
 
-    // Gift Master (50 gift cards)
-    if (giftCards.length >= 50) {
-      achievements.push({
-        id: 6,
-        title: 'Gift Master',
-        description: 'Purchased 50 gift cards',
-        icon: '🎁',
-        earned: true,
-        color: '#ec4899',
-      });
-    } else {
-      achievements.push({
-        id: 6,
-        title: 'Gift Master',
-        description: 'Purchased 50 gift cards',
-        icon: '🎁',
-        earned: false,
-        progress: giftCards.length,
-        total: 50,
-        color: '#ec4899',
-      });
-    }
+    // 3️⃣ Save the result to Redis for future requests (expires in 1 hour)
+    await redisClient.set(cacheKey, JSON.stringify(achievements), { EX: 3600 });
 
     res.json(achievements);
   } catch (err) {

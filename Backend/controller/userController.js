@@ -2,18 +2,19 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 import User from '../model/userModel.js';
-
+import redisClient from '../controller/redisClient.js';
 
 
 // Get all users
 export const getUsers = async (req, res) => {
   try {
-    const users = await User.find();
+    const users = await User.find().limit(20); // limit to 20 users
     res.json(users);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 const JWT_SECRET = process.env.JWT_SECRET || 'yoursecretkey';
 
@@ -59,11 +60,15 @@ export const createUser = async (req, res) => {
     // Generate JWT
     const token = jwt.sign({ id: savedUser._id }, JWT_SECRET, { expiresIn: '7d' });
 
+    // Include bank info in response
     res.status(201).json({
       user: {
         id: savedUser._id,
         name: savedUser.name,
         email: savedUser.email,
+        accountNumber: savedUser.accountNumber,
+        accountName: savedUser.accountName,
+        bankName: savedUser.bankName,
         createdAt: savedUser.createdAt,
         referrer: referrerUser ? {
           id: referrerUser._id,
@@ -133,6 +138,12 @@ export const updateUser = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // ✅ Clear Redis cache for this user
+    if (redisClient) {
+      await redisClient.del(`user:${id}`);
+      console.log(`Cache cleared for user:${id}`);
+    }
+
     res.status(200).json(updatedUser);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -143,51 +154,49 @@ export const updateUser = async (req, res) => {
 
 // Get a user by ID
 export const getUserById = async (req, res) => {
+  const userId = req.params.id;
+
   try {
-    const user = await User.findById(req.params.id);
+    // Check Redis cache first
+    const cachedUser = await redisClient.get(`user:${userId}`);
+    if (cachedUser) {
+      console.log('Cache hit ✅');
+      return res.json(JSON.parse(cachedUser));
+    }
+
+    // Cache miss: fetch from DB
+    const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const now = new Date();
     const createdAt = new Date(user.createdAt);
-    const diffInMonths = (now - createdAt) / (1000 * 60 * 60 * 24 * 30); // Approx
+    const diffInMonths = (now - createdAt) / (1000 * 60 * 60 * 24 * 30);
 
     let memberLevel = 'Bronze';
     let progressPercent = 0;
     let nextLevel = 'Silver';
+    if (diffInMonths >= 6) { memberLevel = 'Platinum'; progressPercent = 100; nextLevel = null; }
+    else if (diffInMonths >= 3) { memberLevel = 'Gold'; progressPercent = Math.round((diffInMonths / 6) * 100); nextLevel = 'Platinum'; }
+    else if (diffInMonths >= 1) { memberLevel = 'Silver'; progressPercent = Math.round((diffInMonths / 6) * 100); nextLevel = 'Gold'; }
 
-    if (diffInMonths >= 6) {
-      memberLevel = 'Platinum';
-      progressPercent = 100;
-      nextLevel = null;
-    } else if (diffInMonths >= 3) {
-      memberLevel = 'Gold';
-      progressPercent = Math.round((diffInMonths / 6) * 100);
-      nextLevel = 'Platinum';
-    } else if (diffInMonths >= 1) {
-      memberLevel = 'Silver';
-      progressPercent = Math.round((diffInMonths / 6) * 100);
-      nextLevel = 'Gold';
-    } else {
-      memberLevel = 'Bronze';
-      progressPercent = Math.round((diffInMonths / 6) * 100);
-      nextLevel = 'Silver';
-    }
-
-    // Count how many users were referred by this user
     const referralCount = await User.countDocuments({ referrer: user._id });
 
-    res.json({
+    const userData = {
       ...user.toObject(),
       memberLevel,
       progressPercent,
       nextLevel,
-      referralCount, // added here
-    });
+      referralCount,
+    };
+
+    // Store in Redis cache for 60 seconds (adjust TTL as needed)
+    await redisClient.setEx(`user:${userId}`, 60, JSON.stringify(userData));
+
+    res.json(userData);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
-
 
 
 
