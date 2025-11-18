@@ -3,6 +3,9 @@ import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 import User from '../model/userModel.js';
 import redisClient from '../controller/redisClient.js';
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 
 // Get all users
@@ -213,6 +216,7 @@ export const deleteUser = async (req, res) => {
 
 
 
+// 1️⃣ Send reset code
 export const sendResetCode = async (req, res) => {
   const { email } = req.body;
 
@@ -228,110 +232,47 @@ export const sendResetCode = async (req, res) => {
     user.resetCodeExpires = resetCodeExpires;
     await user.save();
 
-    // Configure email transporter
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS, // Gmail App Password if 2FA enabled
-      },
+    // Send email via Resend
+    await resend.emails.send({
+      from: 'Cardzip <onboarding@resend.dev>',
+      to: user.email,
+      subject: 'Your Password Reset Code',
+      html: `
+      <html>
+      <head>
+        <style>
+          body { font-family: "Poppins", sans-serif; background-color: #f5f6fa; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow: hidden; }
+          .header { background-color: #95c2c2; color: white; text-align: center; padding: 30px 20px; }
+          .header h1 { margin: 0; font-size: 24px; }
+          .content { padding: 30px 20px; color: #333333; }
+          .content h2 { color: #95c2c2; font-size: 20px; margin-bottom: 10px; }
+          .code-box { display: inline-block; background: #f0f4ff; color: #95c2c2; font-size: 28px; font-weight: bold; padding: 15px 25px; border-radius: 8px; letter-spacing: 4px; margin: 20px 0; }
+          .footer { background: #f5f6fa; text-align: center; padding: 20px; font-size: 14px; color: #777; }
+          a.button { display: inline-block; padding: 12px 25px; background-color: #95c2c2; color: white !important; text-decoration: none; border-radius: 6px; font-weight: 600; margin-top: 20px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Cardzip</h1>
+          </div>
+          <div class="content">
+            <h2>Password Reset Request</h2>
+            <p>Hello ${user.name},</p>
+            <p>We received a request to reset your password. Use the code below to reset it. This code will expire in 15 minutes.</p>
+            <div class="code-box">${resetCode}</div>
+            <p>If you did not request a password reset, please ignore this email.</p>
+            <p>Thank you,<br>Cardzip Team</p>
+          </div>
+          <div class="footer">
+            &copy; 2025 Cardzip. All rights reserved.
+          </div>
+        </div>
+      </body>
+      </html>
+      `,
     });
-
-    const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to: user.email,
-    subject: 'Your Password Reset Code',
-    html: `
-    <html>
-    <head>
-      <style>
-        body {
-          font-family: "Poppins", sans-serif;
-          background-color: #f5f6fa;
-          margin: 0;
-          padding: 0;
-        }
-        .container {
-          max-width: 600px;
-          margin: 40px auto;
-          background: #ffffff;
-          border-radius: 10px;
-          box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-          overflow: hidden;
-        }
-        .header {
-          background-color: #95c2c2; /* theme color */
-          color: white;
-          text-align: center;
-          padding: 30px 20px;
-        }
-        .header h1 {
-          margin: 0;
-          font-size: 24px;
-        }
-        .content {
-          padding: 30px 20px;
-          color: #333333;
-        }
-        .content h2 {
-          color: #95c2c2;
-          font-size: 20px;
-          margin-bottom: 10px;
-        }
-        .code-box {
-          display: inline-block;
-          background: #f0f4ff;
-          color: #95c2c2;
-          font-size: 28px;
-          font-weight: bold;
-          padding: 15px 25px;
-          border-radius: 8px;
-          letter-spacing: 4px;
-          margin: 20px 0;
-        }
-        .footer {
-          background: #f5f6fa;
-          text-align: center;
-          padding: 20px;
-          font-size: 14px;
-          color: #777;
-        }
-        a.button {
-          display: inline-block;
-          padding: 12px 25px;
-          background-color: #95c2c2;
-          color: white !important;
-          text-decoration: none;
-          border-radius: 6px;
-          font-weight: 600;
-          margin-top: 20px;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>Cardzip</h1>
-        </div>
-        <div class="content">
-          <h2>Password Reset Request</h2>
-          <p>Hello ${user.name},</p>
-          <p>We received a request to reset your password. Use the code below to reset it. This code will expire in 15 minutes.</p>
-          <div class="code-box">${resetCode}</div>
-          <p>If you did not request a password reset, please ignore this email.</p>
-          <p>Thank you,<br>Cardzip Team</p>
-        </div>
-        <div class="footer">
-          &copy; 2025 Cardzip. All rights reserved.
-        </div>
-      </div>
-    </body>
-    </html>
-    `
-  };
-
-
-    await transporter.sendMail(mailOptions);
 
     res.json({ message: 'Reset code sent to your email' });
   } catch (err) {
