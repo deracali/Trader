@@ -81,13 +81,13 @@ export const updateAdmin = async (req, res) => {
 
 export const sendAdminResetCode = async (req, res) => {
   const { email } = req.body;
-  console.log('📩 Reset code request body:', req.body);
+  console.log("📩 Admin reset request:", req.body);
 
   try {
     const admin = await Admin.findOne({ email });
-    if (!admin) return res.status(404).json({ message: 'Admin not found' });
+    if (!admin) return res.status(404).json({ message: "Admin not found" });
 
-    // Generate 6-digit code
+    // Generate reset code
     const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
     const resetCodeExpires = Date.now() + 15 * 60 * 1000;
 
@@ -95,40 +95,53 @@ export const sendAdminResetCode = async (req, res) => {
     admin.resetCodeExpires = resetCodeExpires;
     await admin.save();
 
-    // Brevo transporter
-    console.log("🔧 Setting up transporter...");
-    const transporter = nodemailer.createTransport({
-      host: "smtp-relay.brevo.com",
-      port: 587,
-      secure: false,
-      auth: {
-        user: "9823d3001@smtp-brevo.com",
-        pass: "qtHZhp4gMPTyRUvs",
-      },
+    // ✉️ Send email using Resend (same as user)
+    await resend.emails.send({
+      from: "Cardzip Admin <onboarding@resend.dev>",
+      to: admin.email,
+      subject: "Admin Password Reset Code",
+      html: `
+      <html>
+      <head>
+        <style>
+          body { font-family: "Poppins", sans-serif; background-color: #f5f6fa; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow: hidden; }
+          .header { background-color: #95c2c2; color: white; text-align: center; padding: 30px 20px; }
+          .header h1 { margin: 0; font-size: 24px; }
+          .content { padding: 30px 20px; color: #333333; }
+          .content h2 { color: #95c2c2; font-size: 20px; margin-bottom: 10px; }
+          .code-box { display: inline-block; background: #f0f4ff; color: #95c2c2; font-size: 28px; font-weight: bold; padding: 15px 25px; border-radius: 8px; letter-spacing: 4px; margin: 20px 0; }
+          .footer { background: #f5f6fa; text-align: center; padding: 20px; font-size: 14px; color: #777; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header"><h1>Cardzip Admin</h1></div>
+          <div class="content">
+            <h2>Admin Password Reset</h2>
+            <p>Hello ${admin.name || "Admin"},</p>
+            <p>Use the secure code below to reset your admin password. This code expires in 15 minutes.</p>
+            <div class="code-box">${resetCode}</div>
+            <p>If you did not request this, please review your account security immediately.</p>
+            <p>Regards,<br>Cardzip Security Team</p>
+          </div>
+          <div class="footer">&copy; 2025 Cardzip. All rights reserved.</div>
+        </div>
+      </body>
+      </html>
+      `,
     });
 
-    const mailOptions = {
-      from: "chideracalistus1999@gmail.com",
-      to: admin.email,
-      subject: 'Admin Password Reset Code',
-      text: `Your reset code is ${resetCode}`,
-    };
+    console.log("✅ Admin reset email sent to", admin.email);
 
-    console.log("📨 Sending mail to:", admin.email);
-
-    await transporter.sendMail(mailOptions);
-
-    console.log("✅ Email sent successfully to", admin.email);
-
-    res.json({ message: 'Reset code sent to admin email' });
-
+    res.json({ message: "Admin reset code sent to email" });
   } catch (err) {
-    console.error("❌ FULL ERROR:", err);
-    res.status(500).json({ message: err.message || "Unknown error" });
+    console.error("❌ Admin reset error:", err);
+    res.status(500).json({ message: err.message || "Server error" });
   }
 };
 
-// 2️⃣ Verify code and reset admin password
+
 // 2️⃣ Verify code and reset admin password
 export const resetAdminPasswordWithCode = async (req, res) => {
   const { email, code, newPassword } = req.body;
